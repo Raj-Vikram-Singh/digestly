@@ -9,7 +9,9 @@ export function getSupabaseBrowser() {
 }
 
 // For API/server components (if ever needed)
-export function getSupabaseServer(cookies: unknown) {
+import type { CookieMethodsServer } from "@supabase/ssr";
+
+export function getSupabaseServer(cookies: CookieMethodsServer) {
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,

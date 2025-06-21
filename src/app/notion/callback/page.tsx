@@ -1,9 +1,9 @@
 "use client";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/auth";
 
-export default function NotionCallbackPage() {
+function NotionCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [status, setStatus] = useState("Exchanging code...");
@@ -72,5 +72,13 @@ export default function NotionCallbackPage() {
       <h1 className="text-2xl font-bold mb-4">Notion Connection</h1>
       <p>{status}</p>
     </main>
+  );
+}
+
+export default function NotionCallbackPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <NotionCallbackContent />
+    </Suspense>
   );
 }

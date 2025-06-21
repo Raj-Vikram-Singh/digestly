@@ -11,6 +11,10 @@ export default function NotionCallbackPage() {
   useEffect(() => {
     console.log("[NotionCallbackPage] loaded");
     async function handleCallback() {
+      if (!searchParams) {
+        setStatus("Missing search parameters in callback URL.");
+        return;
+      }
       const code = searchParams.get("code");
       console.log("[NotionCallbackPage] code from URL:", code);
       if (!code) {

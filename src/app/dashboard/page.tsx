@@ -27,6 +27,21 @@ export default function Dashboard() {
   const [sendLoading, setSendLoading] = useState(false);
   const [sendSuccess, setSendSuccess] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
+  // Scheduling modal state
+  const [scheduleDb, setScheduleDb] = useState<NotionDatabase | null>(null);
+  const [scheduleEmail, setScheduleEmail] = useState("");
+  const [scheduleFrequency, setScheduleFrequency] = useState("daily");
+  const [scheduleTime, setScheduleTime] = useState("09:00");
+  const [scheduleTimezone, setScheduleTimezone] = useState(
+    Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+  );
+  const [scheduleStartDate, setScheduleStartDate] = useState(() =>
+    new Date().toISOString().slice(0, 10),
+  );
+  const [scheduleEndDate, setScheduleEndDate] = useState("");
+  const [scheduleLoading, setScheduleLoading] = useState(false);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [scheduleSuccess, setScheduleSuccess] = useState<string | null>(null);
   const router = useRouter();
   const dialogRef = useRef<HTMLDivElement | null>(null);
 
@@ -152,6 +167,53 @@ export default function Dashboard() {
     }
   }
 
+  async function handleCreateSchedule() {
+    if (!scheduleDb) return;
+    if (!scheduleEmail || !isValidEmail(scheduleEmail)) {
+      setScheduleError("Please enter a valid email address.");
+      return;
+    }
+    setScheduleLoading(true);
+    setScheduleError(null);
+    setScheduleSuccess(null);
+    try {
+      const supabase = getSupabaseBrowser();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const accessToken = session?.access_token;
+      if (!accessToken) throw new Error("No access token found");
+      const res = await fetch("/api/schedules", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          dbId: scheduleDb.id,
+          email: scheduleEmail,
+          frequency: scheduleFrequency,
+          timeOfDay: scheduleTime,
+          timezone: scheduleTimezone,
+          startDate: scheduleStartDate,
+          endDate: scheduleEndDate || undefined,
+        }),
+      });
+      if (res.ok) {
+        setScheduleSuccess("Schedule created successfully!");
+        setScheduleDb(null);
+        setScheduleEmail("");
+      } else {
+        const err = await res.json();
+        setScheduleError(err.error || "Failed to create schedule");
+      }
+    } catch (err) {
+      setScheduleError((err as Error).message);
+    } finally {
+      setScheduleLoading(false);
+    }
+  }
+
   // Accessibility: focus trap and close on Escape
   useEffect(() => {
     if (!previewDb) return;
@@ -211,15 +273,29 @@ export default function Dashboard() {
           <li
             key={db.id}
             className="border p-4 rounded shadow cursor-pointer hover:bg-accent"
-            onClick={() => handlePreview(db)}
-            aria-label={`Preview ${
-              typeof db.title === "string" ? db.title : "Untitled Database"
-            }`}
+            aria-label={`Preview ${typeof db.title === "string" ? db.title : "Untitled Database"}`}
           >
             <div className="font-semibold">
               {typeof db.title === "string" ? db.title : "Untitled Database"}
             </div>
             <div className="text-xs text-muted-foreground">ID: {db.id}</div>
+            <div className="flex gap-2 mt-2">
+              <Button size="sm" onClick={() => handlePreview(db)}>
+                Preview
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setScheduleDb(db);
+                  setScheduleEmail("");
+                  setScheduleError(null);
+                  setScheduleSuccess(null);
+                }}
+              >
+                Schedule Digest
+              </Button>
+            </div>
           </li>
         ))}
       </ul>
@@ -360,6 +436,158 @@ export default function Dashboard() {
                 Close
               </button>
               {/* Future: Add more actions here, e.g., Send Digest, Select, etc. */}
+            </div>
+          </div>
+        </Dialog.Content>
+      </Dialog>
+
+      {/* Scheduling Modal */}
+      <Dialog open={!!scheduleDb} onOpenChange={() => setScheduleDb(null)}>
+        <Dialog.Content>
+          <div role="dialog" aria-modal="true" aria-label="Schedule Digest">
+            <Dialog.Title>Schedule Digest</Dialog.Title>
+            <div className="flex flex-col gap-2 mt-4">
+              <div>
+                <span className="font-medium">Database:</span>{" "}
+                {typeof scheduleDb?.title === "string"
+                  ? scheduleDb.title
+                  : Array.isArray(scheduleDb?.title) &&
+                      scheduleDb.title.length > 0 &&
+                      typeof scheduleDb.title[0].plain_text === "string"
+                    ? scheduleDb.title[0].plain_text
+                    : "Untitled Database"}
+              </div>
+              <label htmlFor="schedule-email" className="text-sm font-medium">
+                Recipient Email
+              </label>
+              <input
+                id="schedule-email"
+                type="email"
+                className="border rounded px-3 py-2 text-sm focus:outline-none focus:ring focus:border-blue-400"
+                placeholder="Enter recipient email"
+                value={scheduleEmail}
+                onChange={(e) => setScheduleEmail(e.target.value)}
+                autoComplete="email"
+                required
+              />
+              <label
+                htmlFor="schedule-frequency"
+                className="text-sm font-medium mt-2"
+              >
+                Frequency
+              </label>
+              <select
+                id="schedule-frequency"
+                className="border rounded px-3 py-2 text-sm"
+                value={scheduleFrequency}
+                onChange={(e) => setScheduleFrequency(e.target.value)}
+              >
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+              </select>
+              <label
+                htmlFor="schedule-time"
+                className="text-sm font-medium mt-2"
+              >
+                Time of Day
+              </label>
+              <input
+                id="schedule-time"
+                type="time"
+                className="border rounded px-3 py-2 text-sm"
+                value={scheduleTime}
+                onChange={(e) => setScheduleTime(e.target.value)}
+                required
+              />
+              <label
+                htmlFor="schedule-timezone"
+                className="text-sm font-medium mt-2"
+              >
+                Timezone
+              </label>
+              <input
+                id="schedule-timezone"
+                type="text"
+                className="border rounded px-3 py-2 text-sm"
+                value={scheduleTimezone}
+                onChange={(e) => setScheduleTimezone(e.target.value)}
+                required
+              />
+              <label
+                htmlFor="schedule-start-date"
+                className="text-sm font-medium mt-2"
+              >
+                Start Date
+              </label>
+              <input
+                id="schedule-start-date"
+                type="date"
+                className="border rounded px-3 py-2 text-sm"
+                value={scheduleStartDate}
+                onChange={(e) => setScheduleStartDate(e.target.value)}
+                required
+              />
+              <label
+                htmlFor="schedule-end-date"
+                className="text-sm font-medium mt-2"
+              >
+                End Date (optional)
+              </label>
+              <input
+                id="schedule-end-date"
+                type="date"
+                className="border rounded px-3 py-2 text-sm"
+                value={scheduleEndDate}
+                onChange={(e) => setScheduleEndDate(e.target.value)}
+                min={scheduleStartDate}
+              />
+              <button
+                className="px-4 py-2 rounded bg-blue-600 text-white text-sm mt-4 cursor-pointer disabled:opacity-50 flex items-center justify-center"
+                onClick={handleCreateSchedule}
+                disabled={scheduleLoading || !scheduleEmail}
+              >
+                {scheduleLoading ? (
+                  <span className="flex items-center gap-2">
+                    <svg
+                      className="animate-spin h-4 w-4 text-white"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                        fill="none"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8v8z"
+                      />
+                    </svg>
+                    Scheduling…
+                  </span>
+                ) : (
+                  "Save Schedule"
+                )}
+              </button>
+              {scheduleSuccess && (
+                <p className="text-green-600 mt-2">{scheduleSuccess}</p>
+              )}
+              {scheduleError && (
+                <p className="text-red-500 mt-2">{scheduleError}</p>
+              )}
+            </div>
+            <div className="flex justify-end gap-2 mt-6">
+              <button
+                className="px-4 py-2 rounded bg-muted text-sm cursor-pointer"
+                onClick={() => setScheduleDb(null)}
+                autoFocus
+              >
+                Close
+              </button>
             </div>
           </div>
         </Dialog.Content>

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { SignOutButton } from "@/components/ui/SignOutButton";
+import Link from "next/link";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -25,9 +27,30 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground min-h-screen`}
       >
-        {children}
+        <header className="w-full border-b bg-white/80 backdrop-blur sticky top-0 z-30 shadow-sm">
+          <div className="max-w-5xl mx-auto flex items-center justify-between px-6 py-3">
+            <div className="flex items-center gap-3">
+              <span className="font-bold text-xl tracking-tight text-blue-700">
+                Digestly
+              </span>
+              <nav className="hidden md:flex gap-6 ml-8 text-sm text-muted-foreground">
+                <a href="/dashboard" className="hover:text-blue-700 transition">
+                  Dashboard
+                </a>
+                <Link href="/" className="hover:text-blue-700 transition">
+                  Home
+                </Link>
+              </nav>
+            </div>
+            <div className="flex items-center gap-4">
+              {/* Digestly (Supabase + Notion) Sign Out button */}
+              <SignOutButton />
+            </div>
+          </div>
+        </header>
+        <main className="max-w-5xl mx-auto px-4 py-8">{children}</main>
       </body>
     </html>
   );

@@ -54,8 +54,58 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ schedule: data });
 }
 
-// GET: List schedules for the user
+// GET: List schedules for the user (with pagination)
 export async function GET(req: NextRequest) {
+  const authHeader = req.headers.get("authorization");
+  const token = authHeader?.split(" ")[1];
+  if (!token)
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+
+  const adminClient = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
+  const { data: user, error: userError } =
+    await adminClient.auth.getUser(token);
+  if (userError || !user?.user?.id) {
+    return NextResponse.json(
+      { error: "User not authenticated" },
+      { status: 401 },
+    );
+  }
+  const userId = user.user.id;
+
+  // Pagination params
+  const { searchParams } = new URL(req.url);
+  const page = parseInt(searchParams.get("page") || "0", 10);
+  const pageSize = parseInt(searchParams.get("pageSize") || "10", 10);
+  const from = page * pageSize;
+  const to = from + pageSize - 1;
+
+  // Get total count
+  const { count, error: countError } = await adminClient
+    .from("schedules")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", userId);
+  if (countError)
+    return NextResponse.json({ error: countError.message }, { status: 500 });
+
+  // Get paginated data
+  const { data, error } = await adminClient
+    .from("schedules")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .range(from, to);
+  if (error)
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ schedules: data, total: count });
+}
+
+// PATCH: Update schedule (status or full edit)
+export async function PATCH(req: NextRequest) {
+  const body = await req.json();
+  const { id, ...updateFields } = body;
   const authHeader = req.headers.get("authorization");
   const token = authHeader?.split(" ")[1];
   if (!token)
@@ -77,10 +127,47 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await adminClient
     .from("schedules")
-    .select("*")
+    .update(updateFields)
+    .eq("id", id)
     .eq("user_id", userId)
-    .order("created_at", { ascending: false });
+    .select();
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
+  // Return single object if only one row updated, else array
+  if (Array.isArray(data) && data.length === 1) {
+    return NextResponse.json({ schedule: data[0] });
+  }
   return NextResponse.json({ schedules: data });
+}
+
+// DELETE: Delete a schedule
+export async function DELETE(req: NextRequest) {
+  const { id } = await req.json();
+  const authHeader = req.headers.get("authorization");
+  const token = authHeader?.split(" ")[1];
+  if (!token)
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+
+  const adminClient = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
+  const { data: user, error: userError } =
+    await adminClient.auth.getUser(token);
+  if (userError || !user?.user?.id) {
+    return NextResponse.json(
+      { error: "User not authenticated" },
+      { status: 401 },
+    );
+  }
+  const userId = user.user.id;
+
+  const { error } = await adminClient
+    .from("schedules")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", userId);
+  if (error)
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ success: true });
 }

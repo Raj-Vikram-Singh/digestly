@@ -354,3 +354,31 @@ MIT License
 ---
 
 **Ready to move to the next phase, or need any part of this README further customized?**
+
+---
+
+## 🚧 Development Checklist (2025)
+
+- [x] Notion OAuth and Supabase authentication
+- [x] Notion database preview modal (type-safe, enterprise UX)
+- [x] Send digest via email (Resend integration)
+- [x] Schedule digest delivery (UI, Supabase, API, cron job)
+- [x] Vercel cron job setup and migration to App Router
+- [x] Robust error handling, type safety, and production deployment
+
+### Next Up
+
+- [ ] Digest History: Users can view a history of sent digests
+- [ ] Manage Schedules: Dashboard to view/edit/pause/delete schedules
+- [ ] Manual Send: Allow users to trigger a digest manually
+- [ ] Multi-database support per user
+- [ ] Digest customization (select columns, filters, etc.)
+- [ ] Admin panel for analytics and error monitoring
+- [ ] Email delivery status and notifications
+- [ ] Better timezone handling and user settings
+- [ ] OAuth token refresh/expiry handling
+- [ ] CRON_SECRET for endpoint security
+- [ ] GDPR/data export & delete
+- [ ] Onboarding flow and mobile responsiveness
+- [ ] Marketing/landing page
+- [ ] Enterprise UI/UX: Add header, navigation, and refactor dashboard layout for clarity, whitespace, and a modern enterprise look

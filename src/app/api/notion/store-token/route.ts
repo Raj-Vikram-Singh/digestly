@@ -93,3 +93,44 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  // Remove Notion token from user profile
+  try {
+    const authHeader = req.headers.get("authorization");
+    const token = authHeader?.split(" ")[1];
+    if (!token) {
+      return NextResponse.json(
+        { error: "User not authenticated" },
+        { status: 401 },
+      );
+    }
+    const adminClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    );
+    const { data: userData, error: userError } =
+      await adminClient.auth.getUser(token);
+    if (userError || !userData?.user?.id) {
+      return NextResponse.json(
+        { error: "User not authenticated" },
+        { status: 401 },
+      );
+    }
+    const userId = userData.user.id;
+    // Remove the Notion token from the profiles table
+    const { error } = await adminClient
+      .from("profiles")
+      .update({ notion_access_token: null })
+      .eq("id", userId);
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    return NextResponse.json(
+      { error: "Unexpected error", details: String(err) },
+      { status: 500 },
+    );
+  }
+}

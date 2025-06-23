@@ -532,8 +532,18 @@ export default function Dashboard() {
           variant="outline"
           onClick={async () => {
             // Notion signout only
-            await fetch("/api/notion/store-token", { method: "DELETE" });
-            router.replace("/login");
+            const supabase = getSupabaseBrowser();
+            const {
+              data: { session },
+            } = await supabase.auth.getSession();
+            if (!session) return;
+            await fetch("/api/notion/store-token", {
+              method: "DELETE",
+              headers: {
+                Authorization: `Bearer ${session.access_token}`,
+              },
+            });
+            router.replace("/dashboard");
           }}
         >
           Sign Out (Notion)

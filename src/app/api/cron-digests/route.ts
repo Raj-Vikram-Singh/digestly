@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { getNotionClient } from "@/lib/notion";
+import { NextResponse } from "next/server";
 
 function formatRowsAsHtmlTable(rows: Record<string, unknown>[]): string {
   if (!rows.length) return "<p>No data found.</p>";
@@ -206,12 +207,7 @@ async function sendDigest({
   return true;
 }
 
-export default async function handler(req: Request) {
-  // Only allow cron (GET or POST)
-  if (req.method !== "GET" && req.method !== "POST") {
-    return new Response("Method Not Allowed", { status: 405 });
-  }
-
+export async function GET() {
   // Connect to Supabase
   const adminClient = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -231,7 +227,10 @@ export default async function handler(req: Request) {
     .eq("time_of_day", currentTime);
   if (error) {
     console.error("Error fetching schedules:", error.message);
-    return new Response("Error fetching schedules", { status: 500 });
+    return NextResponse.json(
+      { error: "Error fetching schedules" },
+      { status: 500 },
+    );
   }
 
   for (const schedule of schedules || []) {
@@ -259,5 +258,10 @@ export default async function handler(req: Request) {
     }
   }
 
-  return new Response("Scheduled digests processed", { status: 200 });
+  return NextResponse.json(
+    { message: "Scheduled digests processed" },
+    { status: 200 },
+  );
 }
+
+export const dynamic = "force-dynamic";

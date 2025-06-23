@@ -214,17 +214,34 @@ export async function GET() {
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
   );
 
-  // Get all active schedules due now (pseudo logic, adjust for your needs)
+  // Calculate time window for schedules due since last run
   const now = new Date();
-  const currentTime = now.toISOString().slice(11, 16); // 'HH:MM'
   const currentDate = now.toISOString().slice(0, 10); // 'YYYY-MM-DD'
+
+  // Get the current time and time window (default: last 15 minutes)
+  const currentTime = now.toISOString().slice(11, 16); // 'HH:MM'
+
+  // For once-per-day cron, use a wider window to catch any schedules due today
+  // For frequent crons, you can use a smaller window (e.g., 15-20 minutes)
+
+  // Create a time 15 minutes ago (or adjust as needed)
+  const windowMinutes = 15; // Adjust based on your cron frequency
+  const windowTime = new Date(now);
+  windowTime.setMinutes(windowTime.getMinutes() - windowMinutes);
+  const windowTimeStr = windowTime.toISOString().slice(11, 16); // 'HH:MM'
+
+  console.log(`Processing schedules from ${windowTimeStr} to ${currentTime}`);
+
+  // Get all active schedules due in the time window
   const { data: schedules, error } = await adminClient
     .from("schedules")
     .select("*")
     .eq("status", "active")
     .lte("start_date", currentDate)
     .or(`end_date.is.null,end_date.gte.${currentDate}`)
-    .eq("time_of_day", currentTime);
+    // Match time_of_day within our window
+    .gte("time_of_day", windowTimeStr)
+    .lte("time_of_day", currentTime);
   if (error) {
     console.error("Error fetching schedules:", error.message);
     return NextResponse.json(
@@ -251,7 +268,9 @@ export async function GET() {
         email: schedule.email,
         notionToken: profile.notion_access_token,
       });
-      // Optionally: log success
+      console.log(
+        `Successfully sent digest for schedule ${schedule.id} to ${schedule.email}`,
+      );
     } catch (err) {
       // Optionally: log failure
       console.error(`Failed to send digest for schedule ${schedule.id}:`, err);
@@ -259,7 +278,11 @@ export async function GET() {
   }
 
   return NextResponse.json(
-    { message: "Scheduled digests processed" },
+    {
+      message: "Scheduled digests processed",
+      processed: schedules?.length || 0,
+      window: { start: windowTimeStr, end: currentTime },
+    },
     { status: 200 },
   );
 }

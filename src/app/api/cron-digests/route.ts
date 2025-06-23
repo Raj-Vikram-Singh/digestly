@@ -224,13 +224,26 @@ export async function GET() {
   // For once-per-day cron, use a wider window to catch any schedules due today
   // For frequent crons, you can use a smaller window (e.g., 15-20 minutes)
 
-  // Create a time 15 minutes ago (or adjust as needed)
-  const windowMinutes = 15; // Adjust based on your cron frequency
+  // Create a time 24 hours ago (window)
+  const windowMinutes = 24 * 60; // 24 hours
   const windowTime = new Date(now);
   windowTime.setMinutes(windowTime.getMinutes() - windowMinutes);
   const windowTimeStr = windowTime.toISOString().slice(11, 16); // 'HH:MM'
 
   console.log(`Processing schedules from ${windowTimeStr} to ${currentTime}`);
+
+  // First, check all schedules to debug
+  const { data: allSchedules } = await adminClient
+    .from("schedules")
+    .select("*");
+  console.log(`Total schedules in database: ${allSchedules?.length || 0}`);
+  if (allSchedules?.length) {
+    allSchedules.forEach((s) => {
+      console.log(
+        `Schedule ${s.id}: ${s.email}, time: ${s.time_of_day}, status: ${s.status}`,
+      );
+    });
+  }
 
   // Get all active schedules due in the time window
   const { data: schedules, error } = await adminClient
@@ -242,6 +255,11 @@ export async function GET() {
     // Match time_of_day within our window
     .gte("time_of_day", windowTimeStr)
     .lte("time_of_day", currentTime);
+
+  console.log(
+    `Found ${schedules?.length || 0} schedules in the current time window`,
+  );
+
   if (error) {
     console.error("Error fetching schedules:", error.message);
     return NextResponse.json(

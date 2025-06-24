@@ -88,22 +88,65 @@ export default function Dashboard() {
   const [rowActionLoading, setRowActionLoading] = useState<string | null>(null); // schedule id
   const [rowActionSuccess, setRowActionSuccess] = useState<string | null>(null);
   const [rowActionError, setRowActionError] = useState<string | null>(null);
+  // Notion sign out confirmation state
+  const [showNotionSignOutConfirm, setShowNotionSignOutConfirm] =
+    useState(false);
+  const [notionConnected, setNotionConnected] = useState<boolean | null>(null);
+  // Notion disconnect banner
+  const [showReconnectBanner, setShowReconnectBanner] = useState(false);
 
+  // Helper to check Notion connection
+  const checkNotionConnection = useCallback(async () => {
+    const supabase = getSupabaseBrowser();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) {
+      setNotionConnected(false);
+      return;
+    }
+    try {
+      const res = await fetch("/api/notion/databases", {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+      setNotionConnected(res.ok);
+    } catch {
+      setNotionConnected(false);
+    }
+  }, []);
+
+  // On mount and after disconnect, check Notion connection
   useEffect(() => {
-    async function checkSessionAndFetch() {
-      const supabase = getSupabaseBrowser();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+    checkNotionConnection();
+    // Show reconnect banner if redirected after disconnect
+    if (
+      typeof window !== "undefined" &&
+      window.location.search.includes("notion_disconnected=1")
+    ) {
+      setShowReconnectBanner(true);
+      // Remove query param from URL for clean UX
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [checkNotionConnection]);
 
-      if (!session) {
-        router.replace("/login");
+  // Fetch databases (only if connected)
+  useEffect(() => {
+    async function fetchDatabases() {
+      setLoading(true);
+      setError(null);
+      if (!notionConnected) {
+        setDatabases([]);
+        setLoading(false);
         return;
       }
-      setSessionChecked(true);
-
-      // Fetch databases
       try {
+        const supabase = getSupabaseBrowser();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session) throw new Error("No session");
         const res = await fetch("/api/notion/databases", {
           headers: {
             Authorization: `Bearer ${session.access_token}`,
@@ -134,8 +177,8 @@ export default function Dashboard() {
         setLoading(false);
       }
     }
-    checkSessionAndFetch();
-  }, [router]);
+    fetchDatabases();
+  }, [notionConnected]);
 
   // Fetch schedules for the user (pagination)
   const fetchSchedules = useCallback(
@@ -148,24 +191,33 @@ export default function Dashboard() {
           data: { session },
         } = await supabase.auth.getSession();
         if (!session) return;
+
+        // Get the latest schedules data
         const res = await fetch(
           `/api/schedules?page=${pageNum}&pageSize=${pageSize}`,
           {
             headers: { Authorization: `Bearer ${session.access_token}` },
           },
         );
+
         const data = await res.json();
         if (res.ok) {
           setSchedules(data.schedules || []);
           setTotalSchedules(data.total || 0);
-        } else setSchedulesError(data.error || "Failed to fetch schedules");
+
+          // Clear any existing errors
+          setSchedulesError(null);
+        } else {
+          setSchedulesError(data.error || "Failed to fetch schedules");
+        }
       } catch (err) {
+        console.error("Error fetching schedules:", err);
         setSchedulesError((err as Error).message);
       } finally {
         setSchedulesLoading(false);
       }
     },
-    [pageSize],
+    [pageSize], // pageSize affects how many items we fetch
   );
 
   // Infinite scroll effect
@@ -359,6 +411,23 @@ export default function Dashboard() {
     return "Untitled Database";
   }
 
+  // Authentication check: set sessionChecked on mount
+  useEffect(() => {
+    async function checkAuth() {
+      const supabase = getSupabaseBrowser();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) {
+        setSessionChecked(true);
+        router.replace("/login");
+        return;
+      }
+      setSessionChecked(true);
+    }
+    checkAuth();
+  }, [router]);
+
   // Accessibility: focus trap and close on Escape
   useEffect(() => {
     if (!previewDb) return;
@@ -443,68 +512,96 @@ export default function Dashboard() {
 
   // Bulk actions
   async function handleBulkPause() {
-    const supabase = getSupabaseBrowser();
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (!session) return;
-    await Promise.all(
-      selectedIds.map((id) =>
-        fetch("/api/schedules", {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({ id, status: "paused" }),
-        }),
-      ),
-    );
-    clearSelection();
-    router.refresh();
+    try {
+      const supabase = getSupabaseBrowser();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) return;
+
+      await Promise.all(
+        selectedIds.map((id) =>
+          fetch("/api/schedules", {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({ id, status: "paused" }),
+          }),
+        ),
+      );
+
+      // Clear selection and refresh schedules table
+      clearSelection();
+      fetchSchedules(page); // Refresh the table with current data
+    } catch (err) {
+      console.error("Error pausing schedules:", err);
+      // Refresh anyway to show current state
+      fetchSchedules(page);
+    }
   }
   async function handleBulkResume() {
-    const supabase = getSupabaseBrowser();
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (!session) return;
-    await Promise.all(
-      selectedIds.map((id) =>
-        fetch("/api/schedules", {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({ id, status: "active" }),
-        }),
-      ),
-    );
-    clearSelection();
-    router.refresh();
+    try {
+      const supabase = getSupabaseBrowser();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) return;
+
+      await Promise.all(
+        selectedIds.map((id) =>
+          fetch("/api/schedules", {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({ id, status: "active" }),
+          }),
+        ),
+      );
+
+      // Clear selection and refresh schedules table
+      clearSelection();
+      fetchSchedules(page); // Refresh the table with current data
+    } catch (err) {
+      console.error("Error resuming schedules:", err);
+      // Refresh anyway to show current state
+      fetchSchedules(page);
+    }
   }
   async function handleBulkDelete() {
     if (!window.confirm("Delete all selected schedules?")) return;
-    const supabase = getSupabaseBrowser();
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (!session) return;
-    await Promise.all(
-      selectedIds.map((id) =>
-        fetch("/api/schedules", {
-          method: "DELETE",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({ id }),
-        }),
-      ),
-    );
-    clearSelection();
-    router.refresh();
+
+    try {
+      const supabase = getSupabaseBrowser();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) return;
+
+      await Promise.all(
+        selectedIds.map((id) =>
+          fetch("/api/schedules", {
+            method: "DELETE",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({ id }),
+          }),
+        ),
+      );
+
+      // Clear selection and refresh schedules table
+      clearSelection();
+      fetchSchedules(page); // Refresh the table with current data
+    } catch (err) {
+      console.error("Error deleting schedules:", err);
+      // Refresh anyway to show current state
+      fetchSchedules(page);
+    }
   }
 
   // Sorting handler
@@ -526,81 +623,104 @@ export default function Dashboard() {
 
   return (
     <>
-      {/* Notion-only sign out button aligned with Notion Databases */}
-      <div className="flex justify-end mb-2">
-        <Button
-          variant="outline"
-          onClick={async () => {
-            // Notion signout only
-            const supabase = getSupabaseBrowser();
-            const {
-              data: { session },
-            } = await supabase.auth.getSession();
-            if (!session) return;
-            await fetch("/api/notion/store-token", {
-              method: "DELETE",
-              headers: {
-                Authorization: `Bearer ${session.access_token}`,
-              },
-            });
-            router.replace("/dashboard");
-          }}
-        >
-          Sign Out (Notion)
-        </Button>
-      </div>
-      {/* Notion Databases, My Scheduled Digests, and all dashboard content start here. No header at the top. */}
+      {/* Notion-only sign out button at top when connected */}
+      {notionConnected && (
+        <div className="flex justify-end mb-2">
+          <Button
+            variant="outline"
+            onClick={() => setShowNotionSignOutConfirm(true)}
+          >
+            Sign Out (Notion)
+          </Button>
+        </div>
+      )}
+      {/* Reconnect banner */}
+      {showReconnectBanner && !notionConnected && (
+        <div className="mb-4 p-3 bg-yellow-100 border border-yellow-300 rounded text-yellow-900 flex items-center justify-between">
+          <span>
+            Notion disconnected. To resume digests, <b>reconnect Notion</b>{" "}
+            below.
+          </span>
+          <button
+            className="ml-4 text-xs underline"
+            onClick={() => setShowReconnectBanner(false)}
+            aria-label="Dismiss reconnect banner"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+      {/* Notion Databases section - always visible */}
       <section className="mb-10">
         <h2 className="text-2xl font-bold mb-2">Notion Databases</h2>
         <div className="bg-white rounded-lg shadow p-6 mb-4 border">
-          {loading && (
-            <div className="flex items-center gap-2 text-gray-500">
-              <Spinner className="h-4 w-4 text-gray-500 animate-spin" />
-              Loading databases…
+          {notionConnected ? (
+            <>
+              {loading && (
+                <div className="flex items-center gap-2 text-gray-500">
+                  <Spinner className="h-4 w-4 text-gray-500 animate-spin" />
+                  Loading databases…
+                </div>
+              )}
+              {error && <p className="text-red-500 mb-4">{error}</p>}
+              {!loading && databases.length === 0 && !error && (
+                <p>
+                  No databases found. Make sure you&apos;ve shared at least one
+                  database with your Notion integration.
+                </p>
+              )}
+              <ul className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                {databases.map((db) => (
+                  <li
+                    key={db.id}
+                    className="border p-4 rounded shadow-sm cursor-pointer hover:bg-accent transition"
+                    aria-label={`Preview ${typeof db.title === "string" ? db.title : "Untitled Database"}`}
+                  >
+                    <div className="font-semibold text-lg">
+                      {typeof db.title === "string"
+                        ? db.title
+                        : "Untitled Database"}
+                    </div>
+                    <div className="text-xs text-muted-foreground mb-2">
+                      ID: {db.id}
+                    </div>
+                    <div className="flex gap-2 mt-2">
+                      <Button size="sm" onClick={() => handlePreview(db)}>
+                        Preview
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setScheduleDb(db);
+                          setScheduleEmail("");
+                          setScheduleError(null);
+                          setScheduleSuccess(null);
+                        }}
+                      >
+                        Schedule Digest
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-8">
+              <p className="mb-4 text-gray-700 text-center">
+                Notion is disconnected. Please reconnect to view your databases.
+              </p>
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  const mod = await import("@/lib/notion-auth-url");
+                  window.location.href = mod.getNotionAuthUrl();
+                }}
+              >
+                Connect Notion
+              </Button>
             </div>
           )}
-          {error && <p className="text-red-500 mb-4">{error}</p>}
-          {!loading && databases.length === 0 && !error && (
-            <p>
-              No databases found. Make sure you&apos;ve shared at least one
-              database with your Notion integration.
-            </p>
-          )}
-          <ul className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-            {databases.map((db) => (
-              <li
-                key={db.id}
-                className="border p-4 rounded shadow-sm cursor-pointer hover:bg-accent transition"
-                aria-label={`Preview ${typeof db.title === "string" ? db.title : "Untitled Database"}`}
-              >
-                <div className="font-semibold text-lg">
-                  {typeof db.title === "string"
-                    ? db.title
-                    : "Untitled Database"}
-                </div>
-                <div className="text-xs text-muted-foreground mb-2">
-                  ID: {db.id}
-                </div>
-                <div className="flex gap-2 mt-2">
-                  <Button size="sm" onClick={() => handlePreview(db)}>
-                    Preview
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setScheduleDb(db);
-                      setScheduleEmail("");
-                      setScheduleError(null);
-                      setScheduleSuccess(null);
-                    }}
-                  >
-                    Schedule Digest
-                  </Button>
-                </div>
-              </li>
-            ))}
-          </ul>
         </div>
       </section>
 
@@ -759,6 +879,7 @@ export default function Dashboard() {
                               <button
                                 className="p-1 rounded hover:bg-gray-200"
                                 {...props}
+                                disabled={!notionConnected}
                               >
                                 <span className="sr-only">Open actions</span>⋮
                               </button>
@@ -766,6 +887,7 @@ export default function Dashboard() {
                           >
                             <DropdownMenuItem
                               onClick={async () => {
+                                if (!notionConnected) return;
                                 setRowActionLoading(s.id);
                                 setRowActionSuccess(null);
                                 setRowActionError(null);
@@ -817,7 +939,9 @@ export default function Dashboard() {
                                   fetchSchedules(page); // always refresh after action
                                 }
                               }}
-                              disabled={rowActionLoading === s.id}
+                              disabled={
+                                !notionConnected || rowActionLoading === s.id
+                              }
                             >
                               {rowActionLoading === s.id ? (
                                 <span className="flex items-center gap-2">
@@ -847,13 +971,20 @@ export default function Dashboard() {
                               ) : rowActionError === s.id ? (
                                 <span className="text-red-600">Error</span>
                               ) : s.status === "paused" ? (
-                                "Resume"
-                              ) : (
+                                notionConnected ? (
+                                  "Resume"
+                                ) : (
+                                  <span className="text-gray-400">Resume</span>
+                                )
+                              ) : notionConnected ? (
                                 "Pause"
+                              ) : (
+                                <span className="text-gray-400">Pause</span>
                               )}
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={async () => {
+                                if (!notionConnected) return;
                                 if (
                                   !window.confirm(
                                     "Are you sure you want to delete this schedule?",
@@ -905,7 +1036,9 @@ export default function Dashboard() {
                                   fetchSchedules(page); // always refresh after action
                                 }
                               }}
-                              disabled={rowActionLoading === s.id}
+                              disabled={
+                                !notionConnected || rowActionLoading === s.id
+                              }
                             >
                               {rowActionLoading === s.id ? (
                                 <span className="flex items-center gap-2">
@@ -934,18 +1067,18 @@ export default function Dashboard() {
                                 <span className="text-green-600">Deleted!</span>
                               ) : rowActionError === s.id ? (
                                 <span className="text-red-600">Error</span>
-                              ) : (
+                              ) : notionConnected ? (
                                 "Delete"
+                              ) : (
+                                <span className="text-gray-400">Delete</span>
                               )}
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => {
-                                console.log(
-                                  "Dropdown action triggered (edit)",
-                                  s.id,
-                                );
+                                if (!notionConnected) return;
                                 setEditSchedule(s);
                               }}
+                              disabled={!notionConnected}
                             >
                               Edit
                             </DropdownMenuItem>
@@ -1009,19 +1142,25 @@ export default function Dashboard() {
                   </select>
                 </div>
               </div>
-              {/* Bulk action bar */}
+              {/* Bulk action bar - disable Notion-dependent actions if not connected */}
               {selectedIds.length > 0 && (
                 <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-white border shadow-lg rounded-lg px-6 py-3 flex items-center gap-4 animate-fade-in">
                   <span className="font-medium text-sm">
                     {selectedIds.length} selected
                   </span>
-                  <Button size="sm" variant="outline" onClick={handleBulkPause}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleBulkPause}
+                    disabled={!notionConnected}
+                  >
                     Pause
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={handleBulkResume}
+                    disabled={!notionConnected}
                   >
                     Resume
                   </Button>
@@ -1030,6 +1169,7 @@ export default function Dashboard() {
                     variant="outline"
                     className="text-red-600 border-red-300 hover:bg-red-50"
                     onClick={handleBulkDelete}
+                    disabled={!notionConnected}
                   >
                     Delete
                   </Button>
@@ -1417,6 +1557,62 @@ export default function Dashboard() {
           </div>
         </Dialog.Content>
       </Dialog>
+
+      {/* Notion sign out confirmation dialog */}
+      {showNotionSignOutConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+          <div className="bg-white rounded-lg shadow-lg p-6 max-w-sm w-full">
+            <h3 className="text-lg font-semibold mb-2">Disconnect Notion?</h3>
+            <p className="mb-4 text-gray-700">
+              Disconnecting Notion will{" "}
+              <span className="font-semibold text-red-600">
+                pause all your scheduled digests
+              </span>
+              .<br />
+              You will not receive any more emails until you reconnect.
+              <br />
+              Are you sure you want to continue?
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowNotionSignOutConfirm(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="outline"
+                className="bg-red-600 text-white hover:bg-red-700 border-red-600"
+                onClick={async () => {
+                  setShowNotionSignOutConfirm(false);
+                  const supabase = getSupabaseBrowser();
+                  const {
+                    data: { session },
+                  } = await supabase.auth.getSession();
+                  if (!session) return;
+                  await fetch("/api/notion/store-token", {
+                    method: "DELETE",
+                    headers: {
+                      Authorization: `Bearer ${session.access_token}`,
+                    },
+                  });
+                  setNotionConnected(false); // Instantly update UI
+                  setDatabases([]); // Clear Notion-dependent state
+
+                  // Refresh schedules to reflect paused state after disconnect
+                  fetchSchedules(0); // Reset to first page and get updated schedules
+
+                  setShowReconnectBanner(true); // Show reconnect banner
+                  checkNotionConnection(); // Re-check Notion connection state
+                  // Do NOT touch sessionChecked here
+                }}
+              >
+                Disconnect Anyway
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

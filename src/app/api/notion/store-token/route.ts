@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  // Remove Notion token from user profile
+  // Remove Notion token from user profile and pause all schedules
   try {
     const authHeader = req.headers.get("authorization");
     const token = authHeader?.split(" ")[1];
@@ -125,6 +125,15 @@ export async function DELETE(req: NextRequest) {
       .eq("id", userId);
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    // Pause all schedules for this user
+    const { error: pauseError } = await adminClient
+      .from("schedules")
+      .update({ status: "paused" })
+      .eq("user_id", userId)
+      .neq("status", "paused");
+    if (pauseError) {
+      return NextResponse.json({ error: pauseError.message }, { status: 500 });
     }
     return NextResponse.json({ success: true });
   } catch (err) {

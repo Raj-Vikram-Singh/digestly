@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { SignOutButton } from "@/components/ui/SignOutButton";
 import Link from "next/link";
+import Image from "next/image";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,6 +33,16 @@ export default function RootLayout({
         <header className="w-full border-b bg-white/80 backdrop-blur sticky top-0 z-30 shadow-sm">
           <div className="max-w-5xl mx-auto flex items-center justify-between px-6 py-3">
             <div className="flex items-center gap-3">
+              <Link href="/">
+                <Image
+                  src="/digestly_logo.png"
+                  alt="Digestly Logo"
+                  width={36}
+                  height={36}
+                  className="mr-2"
+                  priority
+                />
+              </Link>
               <span className="font-bold text-xl tracking-tight text-blue-700">
                 Digestly
               </span>

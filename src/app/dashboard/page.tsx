@@ -211,7 +211,6 @@ export default function Dashboard() {
           setSchedulesError(data.error || "Failed to fetch schedules");
         }
       } catch (err) {
-        console.error("Error fetching schedules:", err);
         setSchedulesError((err as Error).message);
       } finally {
         setSchedulesLoading(false);
@@ -535,8 +534,7 @@ export default function Dashboard() {
       // Clear selection and refresh schedules table
       clearSelection();
       fetchSchedules(page); // Refresh the table with current data
-    } catch (err) {
-      console.error("Error pausing schedules:", err);
+    } catch {
       // Refresh anyway to show current state
       fetchSchedules(page);
     }
@@ -565,8 +563,7 @@ export default function Dashboard() {
       // Clear selection and refresh schedules table
       clearSelection();
       fetchSchedules(page); // Refresh the table with current data
-    } catch (err) {
-      console.error("Error resuming schedules:", err);
+    } catch {
       // Refresh anyway to show current state
       fetchSchedules(page);
     }
@@ -597,8 +594,7 @@ export default function Dashboard() {
       // Clear selection and refresh schedules table
       clearSelection();
       fetchSchedules(page); // Refresh the table with current data
-    } catch (err) {
-      console.error("Error deleting schedules:", err);
+    } catch {
       // Refresh anyway to show current state
       fetchSchedules(page);
     }

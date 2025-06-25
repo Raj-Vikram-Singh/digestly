@@ -14,19 +14,14 @@ export default function AuthCallbackPage() {
     // Function to handle the Supabase auth callback
     const handleAuthCallback = async () => {
       try {
-        console.log("Auth callback handler running");
-
         // Get the code from the URL if it exists
         const code = searchParams?.get("code");
 
         if (!code) {
-          console.log("No auth code found in URL");
           setError("No authentication code found. Please try again.");
           setIsProcessing(false);
           return;
         }
-
-        console.log("Auth code found, creating Supabase client");
 
         // Create Supabase client
         const supabase = createBrowserClient(
@@ -34,42 +29,33 @@ export default function AuthCallbackPage() {
           process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
         );
 
-        console.log("Exchanging code for session");
-
         // The core of the OAuth flow - exchange the code for a session
         const { error: exchangeError } =
           await supabase.auth.exchangeCodeForSession(code);
 
         if (exchangeError) {
-          console.error("Failed to exchange auth code:", exchangeError);
           setError(`Authentication failed: ${exchangeError.message}`);
           setIsProcessing(false);
           return;
         }
-
-        console.log("Code exchanged successfully, checking for session");
 
         // Check if we have a valid session
         const { data: sessionData, error: sessionError } =
           await supabase.auth.getSession();
 
         if (sessionError) {
-          console.error("Error getting session:", sessionError);
           setError(`Session error: ${sessionError.message}`);
           setIsProcessing(false);
           return;
         }
 
         if (sessionData?.session) {
-          console.log("Valid session found, redirecting to dashboard");
           router.push("/dashboard");
         } else {
-          console.error("No session found after code exchange");
           setError("Failed to create session. Please try again.");
           setIsProcessing(false);
         }
-      } catch (err) {
-        console.error("Unexpected error in auth callback:", err);
+      } catch {
         setError("An unexpected error occurred. Please try again.");
         setIsProcessing(false);
       }

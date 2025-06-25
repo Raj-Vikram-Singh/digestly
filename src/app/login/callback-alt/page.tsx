@@ -9,21 +9,10 @@ export default function AuthCallbackPage() {
   const [status, setStatus] = useState("Initializing authentication...");
   const [error, setError] = useState<string | null>(null);
 
-  // Log all URL parameters for debugging
-  useEffect(() => {
-    if (searchParams) {
-      console.log("Auth callback URL parameters:");
-      searchParams.forEach((value, key) => {
-        console.log(`${key}: ${value}`);
-      });
-    }
-  }, [searchParams]);
-
   useEffect(() => {
     // This effect will handle the authentication callback
     const handleCallback = async () => {
       try {
-        console.log("Auth callback handler running");
         setStatus("Processing authentication...");
 
         const supabase = createBrowserClient(
@@ -36,7 +25,6 @@ export default function AuthCallbackPage() {
         const existingSession = data?.session;
 
         if (existingSession) {
-          console.log("Existing session found");
           setStatus("Session found, redirecting to dashboard...");
           setTimeout(() => router.push("/dashboard"), 1000);
           return;
@@ -50,7 +38,6 @@ export default function AuthCallbackPage() {
 
         // Special handling for magic links - they sometimes provide tokens directly
         if ((type === "recovery" || type === "magiclink") && accessToken) {
-          console.log("Magic link detected with tokens");
           setStatus("Processing magic link authentication...");
 
           const { error: setSessionError } = await supabase.auth.setSession({
@@ -59,7 +46,6 @@ export default function AuthCallbackPage() {
           });
 
           if (setSessionError) {
-            console.error("Error setting session:", setSessionError);
             setError(`Failed to authenticate: ${setSessionError.message}`);
             return;
           }
@@ -71,7 +57,6 @@ export default function AuthCallbackPage() {
 
         // OAuth code exchange for Google login
         if (code) {
-          console.log("OAuth code found, attempting to exchange");
           setStatus("Processing Google authentication...");
 
           try {
@@ -79,7 +64,6 @@ export default function AuthCallbackPage() {
               await supabase.auth.exchangeCodeForSession(code);
 
             if (exchangeError) {
-              console.error("Code exchange error:", exchangeError);
               setError(`Authentication failed: ${exchangeError.message}`);
               return;
             }
@@ -89,17 +73,14 @@ export default function AuthCallbackPage() {
             const newSession = sessionData?.session;
 
             if (newSession) {
-              console.log("Session established after code exchange");
               setStatus("Authentication successful! Redirecting...");
               setTimeout(() => router.push("/dashboard"), 1000);
             } else {
-              console.error("No session after code exchange");
               setError(
                 "Authentication completed but no session was created. Please try again.",
               );
             }
           } catch (exchangeErr) {
-            console.error("Error during code exchange:", exchangeErr);
             setError(
               `Authentication error: ${exchangeErr instanceof Error ? exchangeErr.message : "Unknown error"}`,
             );
@@ -107,7 +88,6 @@ export default function AuthCallbackPage() {
           return;
         } else if (type === "magiclink" || type === "recovery") {
           // Handle magic link flow without tokens
-          console.log("Magic link parameters detected without tokens");
           setStatus("Processing magic link...");
 
           // Give Supabase client a moment to process any auth parameters
@@ -116,7 +96,6 @@ export default function AuthCallbackPage() {
           // Check for a session again
           const { data: sessionData } = await supabase.auth.getSession();
           if (sessionData?.session) {
-            console.log("Session established after magic link processing");
             setStatus("Authentication successful! Redirecting...");
             setTimeout(() => router.push("/dashboard"), 1000);
             return;
@@ -129,7 +108,6 @@ export default function AuthCallbackPage() {
           !accessToken &&
           !(type === "magiclink" || type === "recovery")
         ) {
-          console.error("No valid authentication parameters found");
           setError(
             "Missing authentication information. Please try logging in again.",
           );
@@ -141,26 +119,20 @@ export default function AuthCallbackPage() {
           await supabase.auth.getSession();
 
         if (finalError) {
-          console.error("Final session check error:", finalError);
           setError(`Session error: ${finalError.message}`);
           return;
         }
 
         if (finalData?.session) {
-          console.log("Session found in final check");
           setStatus("Authentication successful! Redirecting...");
           setTimeout(() => router.push("/dashboard"), 1000);
         } else {
-          console.error("No session found in final check");
           setError(
             "Authentication completed but no session was created. Please try logging in again.",
           );
         }
-      } catch (err) {
-        console.error("Unexpected error in auth callback:", err);
-        setError(
-          `An unexpected error occurred: ${err instanceof Error ? err.message : "Unknown error"}`,
-        );
+      } catch {
+        setError("An unexpected error occurred during authentication.");
       }
     };
 

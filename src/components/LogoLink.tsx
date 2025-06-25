@@ -18,8 +18,7 @@ export function LogoLink() {
 
         const { data } = await supabase.auth.getSession();
         setIsAuthenticated(!!data.session);
-      } catch (error) {
-        console.error("Error checking auth status:", error);
+      } catch {
         setIsAuthenticated(false);
       }
     }

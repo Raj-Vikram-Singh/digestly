@@ -230,20 +230,8 @@ export async function GET() {
   windowTime.setMinutes(windowTime.getMinutes() - windowMinutes);
   const windowTimeStr = windowTime.toISOString().slice(11, 16); // 'HH:MM'
 
-  console.log(`Processing schedules from ${windowTimeStr} to ${currentTime}`);
-
   // First, check all schedules to debug
-  const { data: allSchedules } = await adminClient
-    .from("schedules")
-    .select("*");
-  console.log(`Total schedules in database: ${allSchedules?.length || 0}`);
-  if (allSchedules?.length) {
-    allSchedules.forEach((s) => {
-      console.log(
-        `Schedule ${s.id}: ${s.email}, time: ${s.time_of_day}, status: ${s.status}`,
-      );
-    });
-  }
+  // Get schedules that need to be processed
 
   // Get all active schedules due in the time window
   const { data: schedules, error } = await adminClient
@@ -256,12 +244,7 @@ export async function GET() {
     .gte("time_of_day", windowTimeStr)
     .lte("time_of_day", currentTime);
 
-  console.log(
-    `Found ${schedules?.length || 0} schedules in the current time window`,
-  );
-
   if (error) {
-    console.error("Error fetching schedules:", error.message);
     return NextResponse.json(
       { error: "Error fetching schedules" },
       { status: 500 },
@@ -276,7 +259,6 @@ export async function GET() {
       .eq("id", schedule.user_id)
       .single();
     if (!profile?.notion_access_token) {
-      console.warn(`No Notion token for user ${schedule.user_id}`);
       continue;
     }
     // Call your sendDigest logic (reuse your API code)
@@ -286,12 +268,8 @@ export async function GET() {
         email: schedule.email,
         notionToken: profile.notion_access_token,
       });
-      console.log(
-        `Successfully sent digest for schedule ${schedule.id} to ${schedule.email}`,
-      );
-    } catch (err) {
+    } catch {
       // Optionally: log failure
-      console.error(`Failed to send digest for schedule ${schedule.id}:`, err);
     }
   }
 

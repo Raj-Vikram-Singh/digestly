@@ -16,8 +16,6 @@ export default function LoginPage() {
     setMessage(null);
 
     try {
-      console.log("Starting magic link login");
-
       const supabase = createBrowserClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -28,7 +26,6 @@ export default function LoginPage() {
         "/login/callback-alt",
         window.location.origin,
       ).toString();
-      console.log("Using magic link redirect URL:", redirectUrl);
 
       // Send the magic link email
       const { error } = await supabase.auth.signInWithOtp({
@@ -41,14 +38,11 @@ export default function LoginPage() {
       });
 
       if (error) {
-        console.error("Magic link error:", error);
         setMessage(`Error: ${error.message}`);
       } else {
-        console.log("Magic link sent successfully");
         setMessage("Magic link sent! Check your email inbox.");
       }
-    } catch (err) {
-      console.error("Unexpected error sending magic link:", err);
+    } catch {
       setMessage("An unexpected error occurred. Please try again.");
     } finally {
       setLoading(false);
@@ -60,8 +54,6 @@ export default function LoginPage() {
     setMessage(null);
 
     try {
-      console.log("Starting Google login");
-
       const supabase = createBrowserClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -72,7 +64,6 @@ export default function LoginPage() {
         "/login/callback-alt",
         window.location.origin,
       ).toString();
-      console.log("Using redirect URL:", redirectUrl);
 
       // Start the OAuth flow with Google
       const { data, error } = await supabase.auth.signInWithOAuth({
@@ -88,7 +79,6 @@ export default function LoginPage() {
 
       // Check for errors
       if (error) {
-        console.error("Google OAuth error:", error);
         setMessage(`Login error: ${error.message}`);
         setLoading(false);
         return;
@@ -96,18 +86,14 @@ export default function LoginPage() {
 
       // Check if we got a proper URL to redirect to
       if (!data?.url) {
-        console.error("No redirect URL returned from Supabase");
         setMessage("Failed to start login process. Please try again.");
         setLoading(false);
         return;
       }
 
-      console.log("OAuth setup successful, redirecting to provider");
-
       // If we get here, we have a URL to redirect to
       window.location.href = data.url;
-    } catch (err: unknown) {
-      console.error("Unexpected error during Google login:", err);
+    } catch {
       setMessage("An unexpected error occurred. Please try again.");
       setLoading(false);
     }

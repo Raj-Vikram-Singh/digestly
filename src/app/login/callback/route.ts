@@ -13,7 +13,6 @@ function redirectToAlt(request: NextRequest) {
     `/login/callback-alt${searchParams ? "?" + searchParams : ""}`,
     url.origin,
   );
-  console.log(`Redirecting auth callback to: ${redirectUrl.toString()}`);
 
   return NextResponse.redirect(redirectUrl);
 }

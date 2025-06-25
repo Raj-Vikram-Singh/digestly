@@ -9,14 +9,12 @@ function NotionCallbackContent() {
   const [status, setStatus] = useState("Exchanging code...");
 
   useEffect(() => {
-    console.log("[NotionCallbackPage] loaded");
     async function handleCallback() {
       if (!searchParams) {
         setStatus("Missing search parameters in callback URL.");
         return;
       }
       const code = searchParams.get("code");
-      console.log("[NotionCallbackPage] code from URL:", code);
       if (!code) {
         setStatus("Missing code in callback URL.");
         return;
@@ -32,15 +30,12 @@ function NotionCallbackContent() {
         }
         await new Promise((res) => setTimeout(res, 300));
       }
-      console.log("[NotionCallbackPage] session:", session);
       if (!session) {
         setStatus("User session not found. Please log in again.");
         router.replace("/login");
         return;
       }
-      console.log("[NotionCallbackPage] access_token:", session.access_token);
       // Call protected API to store Notion token
-      console.log("[NotionCallbackPage] POSTing to /api/notion/store-token");
       const res = await fetch("/api/notion/store-token", {
         method: "POST",
         headers: {
@@ -56,10 +51,6 @@ function NotionCallbackContent() {
         const err = await res.json();
         setStatus(
           "Failed to connect Notion: " + (err.error || "Unknown error"),
-        );
-        console.log(
-          "[NotionCallbackPage] Error from /api/notion/store-token:",
-          err,
         );
       }
     }

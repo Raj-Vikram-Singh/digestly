@@ -4,41 +4,39 @@ import React from "react";
 
 const pricingTiers = [
   {
-    name: "Free",
+    name: "Free Beta",
     price: "$0",
     features: [
       "Connect 1 Notion workspace",
-      "Send up to 5 digests/month",
+      "Preview any database",
       "Basic scheduling (daily/weekly)",
-      "Email support",
+      "Up to 20 emails/month",
     ],
     cta: "Get Started",
     highlight: false,
   },
   {
     name: "Pro",
-    price: "$12/mo",
+    price: "Coming Soon",
     features: [
-      "Connect up to 3 Notion workspaces",
-      "Unlimited digests",
+      "Connect 1 Notion workspace",
       "Advanced scheduling (custom cron)",
-      "Digest history & management",
-      "Priority support",
+      "Unlimited emails",
+      "Email delivery tracking",
     ],
-    cta: "Start Pro Trial",
+    cta: "Join Waitlist",
     highlight: true,
   },
   {
     name: "Enterprise",
     price: "Contact Us",
     features: [
-      "Unlimited workspaces",
-      "Team & org support",
+      "Multiple workspaces",
+      "Custom email templates",
+      "Dedicated support",
       "Custom integrations",
-      "Dedicated onboarding",
-      "SLA & compliance",
     ],
-    cta: "Contact Sales",
+    cta: "Contact Us",
     highlight: false,
   },
 ];
@@ -49,14 +47,12 @@ export default function Home() {
       {/* Hero Section */}
       <section className="w-full flex-1 flex flex-col items-center justify-center py-28 px-4 bg-white dark:bg-gray-950">
         <div className="max-w-3xl mx-auto text-center">
-          {/* Remove logo from hero section, revert to previous */}
           <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-6">
-            Automate Notion database digests for your team
+            Send Notion database digests to your inbox
           </h1>
           <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 mb-10">
-            Digestly connects to your Notion workspace and delivers beautiful,
-            scheduled database summaries to your inbox. Minimal setup, maximum
-            clarity.
+            Connect your Notion workspace, select your databases, and schedule
+            email summaries. Built for clarity and simplicity.
           </p>
           <a
             href="/login"
@@ -108,11 +104,11 @@ export default function Home() {
               </svg>
             </div>
             <h3 className="text-lg font-semibold mb-2">
-              Effortless Notion Integration
+              Simple Notion Connection
             </h3>
             <p className="text-gray-600 dark:text-gray-300">
-              Connect your workspace in seconds with secure OAuth2. No manual
-              setup or copy-paste tokens.
+              Connect with OAuth2 and access your Notion databases instantly.
+              Select any database to preview before sending.
             </p>
           </div>
           <div className="flex flex-col items-center text-center">
@@ -153,12 +149,10 @@ export default function Home() {
                 />
               </svg>
             </div>
-            <h3 className="text-lg font-semibold mb-2">
-              Automated, Flexible Scheduling
-            </h3>
+            <h3 className="text-lg font-semibold mb-2">Scheduled Delivery</h3>
             <p className="text-gray-600 dark:text-gray-300">
-              Send digests instantly or on a custom schedule—daily, weekly, or
-              advanced cron.
+              Send database summaries on-demand or set up automated delivery on
+              daily, weekly, or custom schedules.
             </p>
           </div>
           <div className="flex flex-col items-center text-center">
@@ -189,12 +183,10 @@ export default function Home() {
                 />
               </svg>
             </div>
-            <h3 className="text-lg font-semibold mb-2">
-              Enterprise-Grade Security
-            </h3>
+            <h3 className="text-lg font-semibold mb-2">Privacy-Focused</h3>
             <p className="text-gray-600 dark:text-gray-300">
-              All data encrypted, GDPR-ready, and never stored beyond what’s
-              needed for delivery.
+              We securely store only what&apos;s needed. Your Notion data passes
+              through securely and is never permanently stored.
             </p>
           </div>
         </div>
@@ -207,10 +199,10 @@ export default function Home() {
       >
         <div className="max-w-4xl mx-auto text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">
-            Simple, transparent pricing
+            Simple pricing model
           </h2>
           <p className="text-gray-600 dark:text-gray-300">
-            Start free. Upgrade as your needs grow. No hidden fees.
+            Start with our free beta. Premium plans coming soon.
           </p>
         </div>
         <div className="flex flex-col md:flex-row gap-8 max-w-4xl mx-auto justify-center">
@@ -262,38 +254,37 @@ export default function Home() {
           </h2>
           <div className="space-y-8 text-base">
             <div>
-              <h3 className="font-semibold mb-1">Is Digestly secure?</h3>
+              <h3 className="font-semibold mb-1">How does Digestly work?</h3>
               <p className="text-gray-600 dark:text-gray-300">
-                Yes. We use OAuth2 for Notion, never store your content, and all
-                credentials are encrypted. Only you control your data.
+                First, connect your Notion using secure OAuth. Then select any
+                database to preview, and either send it immediately or schedule
+                it for recurring delivery.
+              </p>
+            </div>
+            <div>
+              <h3 className="font-semibold mb-1">Is my Notion data secure?</h3>
+              <p className="text-gray-600 dark:text-gray-300">
+                Yes. We use Notion&apos;s official OAuth2, encrypt all tokens,
+                and never permanently store your database contents. Data is only
+                processed for delivery.
               </p>
             </div>
             <div>
               <h3 className="font-semibold mb-1">
-                Can I use Digestly for my team?
+                What email service do you use?
               </h3>
               <p className="text-gray-600 dark:text-gray-300">
-                Absolutely! Pro and Enterprise plans support multiple workspaces
-                and team features.
+                We use Resend, a reliable transactional email provider, to
+                deliver your database digests with high deliverability.
               </p>
             </div>
             <div>
               <h3 className="font-semibold mb-1">
-                What email providers are supported?
+                Can I customize my digests?
               </h3>
               <p className="text-gray-600 dark:text-gray-300">
-                Digestly uses Resend by default, but you can request custom
-                integrations (SMTP, SendGrid, etc.) on Enterprise.
-              </p>
-            </div>
-            <div>
-              <h3 className="font-semibold mb-1">How do I get support?</h3>
-              <p className="text-gray-600 dark:text-gray-300">
-                Email us at{" "}
-                <a href="mailto:support@digestly.com" className="underline">
-                  support@digestly.com
-                </a>{" "}
-                or use the in-app chat (coming soon).
+                Currently, we send the full database content. More customization
+                options are coming soon in future updates.
               </p>
             </div>
           </div>

@@ -114,28 +114,27 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-white">
-      <div className="w-full max-w-sm px-4">
-        {/* Logo */}
-        <div className="flex justify-center mb-8">
-          <Link href="/">
-            <div className="flex items-center justify-center">
-              <Image
-                src="/digestly_logo.png"
-                alt="Digestly Logo"
-                width={40}
-                height={40}
-                priority
-                className="mr-2"
-              />
-              <span className="text-xl font-bold">Digestly</span>
-            </div>
-          </Link>
-        </div>
+    <div className="min-h-screen flex flex-col bg-gray-50">
+      {/* Logo in top left corner */}
+      <div className="w-full px-6 pt-6 md:pt-8 mb-16">
+        <Link href="/">
+          <div className="flex items-center gap-2">
+            <Image
+              src="/digestly_logo.png"
+              alt="Digestly Logo"
+              width={36}
+              height={36}
+              priority
+            />
+            <span className="text-xl font-bold text-gray-800">Digestly</span>
+          </div>
+        </Link>
+      </div>
 
+      <div className="w-full max-w-md px-6 mx-auto mt-8">
         {/* Tagline */}
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-medium mb-1">
+        <div className="text-center mb-10">
+          <h1 className="text-3xl font-bold mb-2 text-gray-800">
             Connect. Schedule. Deliver.
           </h1>
           <p className="text-sm text-gray-500">

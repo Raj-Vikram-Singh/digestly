@@ -5,6 +5,13 @@ import Link from "next/link";
 export function AppHeaderNav() {
   const pathname = usePathname() || "";
   const isLanding = pathname === "/";
+  const isPrivacyOrTerms =
+    pathname.startsWith("/privacy") || pathname.startsWith("/terms");
+
+  // Don't show any navigation on privacy or terms pages
+  if (isPrivacyOrTerms) {
+    return null;
+  }
 
   return (
     <nav className="hidden md:flex gap-6 text-sm text-muted-foreground items-center">

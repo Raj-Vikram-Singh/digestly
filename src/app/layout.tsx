@@ -7,6 +7,7 @@ import { AppHeaderSignOut } from "@/components/AppHeaderSignOut";
 import { LogoLink } from "@/components/LogoLink";
 import { ConditionalHeader } from "@/components/ConditionalHeader";
 import { MainContent } from "@/components/MainContent";
+import Link from "next/link";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -69,14 +70,20 @@ export default function RootLayout({
                   </span>
                 </div>
                 <div className="flex gap-6 text-sm text-gray-500">
-                  <a href="#" className="hover:text-blue-700 transition">
+                  <Link
+                    href="/privacy"
+                    className="hover:text-blue-700 transition"
+                  >
                     Privacy
-                  </a>
-                  <a href="#" className="hover:text-blue-700 transition">
+                  </Link>
+                  <Link
+                    href="/terms"
+                    className="hover:text-blue-700 transition"
+                  >
                     Terms
-                  </a>
+                  </Link>
                   <a
-                    href="mailto:support@digestly.app"
+                    href="mailto:knockanapp@gmail.com"
                     className="hover:text-blue-700 transition"
                   >
                     Contact
@@ -91,11 +98,14 @@ export default function RootLayout({
         <ConditionalHeader includePaths={["/login"]} excludePaths={[]}>
           <footer className="fixed bottom-0 w-full py-4 px-6 bg-transparent">
             <div className="flex justify-start md:justify-end gap-6 text-xs text-gray-500">
-              <a href="#" className="hover:text-gray-700 transition">
-                Privacy & Terms
-              </a>
+              <Link href="/privacy" className="hover:text-gray-700 transition">
+                Privacy
+              </Link>
+              <Link href="/terms" className="hover:text-gray-700 transition">
+                Terms
+              </Link>
               <a
-                href="mailto:support@digestly.app"
+                href="mailto:knockanapp@gmail.com"
                 className="hover:text-gray-700 transition"
               >
                 Contact

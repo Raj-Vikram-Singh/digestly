@@ -1,6 +1,8 @@
 // app/page.tsx
 "use client";
-import React from "react";
+import React, { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { createBrowserClient } from "@supabase/ssr";
 
 const pricingTiers = [
   {
@@ -42,6 +44,27 @@ const pricingTiers = [
 ];
 
 export default function Home() {
+  const router = useRouter();
+
+  // Check if the user is authenticated and redirect to dashboard if they are
+  useEffect(() => {
+    async function checkAuth() {
+      const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      );
+
+      const { data } = await supabase.auth.getSession();
+
+      // If the user is authenticated, redirect to dashboard
+      if (data.session) {
+        router.replace("/dashboard");
+      }
+    }
+
+    checkAuth();
+  }, [router]);
+
   return (
     <main className="min-h-screen bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 flex flex-col">
       {/* Hero Section */}

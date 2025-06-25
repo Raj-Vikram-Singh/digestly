@@ -31,9 +31,6 @@ export function AppHeaderNav() {
           <Link href="/dashboard" className="hover:text-blue-700 transition">
             Dashboard
           </Link>
-          <Link href="/" className="hover:text-blue-700 transition">
-            Home
-          </Link>
         </>
       )}
     </nav>

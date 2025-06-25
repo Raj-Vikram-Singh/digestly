@@ -3,8 +3,9 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 
 export function AppHeaderNav() {
-  const pathname = usePathname();
+  const pathname = usePathname() || "";
   const isLanding = pathname === "/";
+
   return (
     <nav className="hidden md:flex gap-6 text-sm text-muted-foreground items-center">
       {isLanding ? (

@@ -3,6 +3,8 @@ import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { getSupabaseBrowser } from "@/lib/auth";
 import { useRouter } from "next/navigation";
+import { addCsrfHeaders } from "@/lib/csrf-client";
+import Image from "next/image";
 import { Dialog } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuItem } from "@/components/ui/dropdown-menu";
@@ -310,14 +312,17 @@ export default function Dashboard() {
       } = await supabase.auth.getSession();
       const accessToken = session?.access_token;
       if (!accessToken) throw new Error("No access token found");
-      const res = await fetch("/api/send-digest", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({ dbId: previewDb.id, email: recipientEmail }),
-      });
+      const res = await fetch(
+        "/api/send-digest",
+        addCsrfHeaders({
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({ dbId: previewDb.id, email: recipientEmail }),
+        }),
+      );
       if (res.ok) {
         setSendSuccess("Digest sent successfully!");
         setRecipientEmail("");
@@ -349,22 +354,25 @@ export default function Dashboard() {
       } = await supabase.auth.getSession();
       const accessToken = session?.access_token;
       if (!accessToken) throw new Error("No access token found");
-      const res = await fetch("/api/schedules", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({
-          dbId: scheduleDb.id,
-          email: scheduleEmail,
-          frequency: scheduleFrequency,
-          timeOfDay: scheduleTime,
-          timezone: scheduleTimezone,
-          startDate: scheduleStartDate,
-          endDate: scheduleEndDate || undefined,
+      const res = await fetch(
+        "/api/schedules",
+        addCsrfHeaders({
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            dbId: scheduleDb.id,
+            email: scheduleEmail,
+            frequency: scheduleFrequency,
+            timeOfDay: scheduleTime,
+            timezone: scheduleTimezone,
+            startDate: scheduleStartDate,
+            endDate: scheduleEndDate || undefined,
+          }),
         }),
-      });
+      );
       if (res.ok) {
         setScheduleSuccess("Schedule created successfully!");
         setScheduleDb(null);
@@ -404,22 +412,25 @@ export default function Dashboard() {
         data: { session },
       } = await supabase.auth.getSession();
       if (!session) throw new Error("No access token found");
-      const res = await fetch("/api/schedules", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          id: editSchedule.id,
-          email: editSchedule.email,
-          frequency: editSchedule.frequency,
-          time_of_day: editSchedule.time_of_day,
-          timezone: editSchedule.timezone,
-          start_date: editSchedule.start_date,
-          end_date: editSchedule.end_date,
+      const res = await fetch(
+        "/api/schedules",
+        addCsrfHeaders({
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            id: editSchedule.id,
+            email: editSchedule.email,
+            frequency: editSchedule.frequency,
+            time_of_day: editSchedule.time_of_day,
+            timezone: editSchedule.timezone,
+            start_date: editSchedule.start_date,
+            end_date: editSchedule.end_date,
+          }),
         }),
-      });
+      );
       if (res.ok) {
         setEditSuccess("Schedule updated!");
         setEditSchedule(null);
@@ -560,14 +571,17 @@ export default function Dashboard() {
 
       await Promise.all(
         selectedIds.map((id) =>
-          fetch("/api/schedules", {
-            method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${session.access_token}`,
-            },
-            body: JSON.stringify({ id, status: "paused" }),
-          }),
+          fetch(
+            "/api/schedules",
+            addCsrfHeaders({
+              method: "PATCH",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${session.access_token}`,
+              },
+              body: JSON.stringify({ id, status: "paused" }),
+            }),
+          ),
         ),
       );
 
@@ -589,14 +603,17 @@ export default function Dashboard() {
 
       const results = await Promise.all(
         selectedIds.map((id) =>
-          fetch("/api/schedules", {
-            method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${session.access_token}`,
-            },
-            body: JSON.stringify({ id, status: "active" }),
-          }),
+          fetch(
+            "/api/schedules",
+            addCsrfHeaders({
+              method: "PATCH",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${session.access_token}`,
+              },
+              body: JSON.stringify({ id, status: "active" }),
+            }),
+          ),
         ),
       );
       let limitError = false;
@@ -638,14 +655,17 @@ export default function Dashboard() {
 
       await Promise.all(
         selectedIds.map((id) =>
-          fetch("/api/schedules", {
-            method: "DELETE",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${session.access_token}`,
-            },
-            body: JSON.stringify({ id }),
-          }),
+          fetch(
+            "/api/schedules",
+            addCsrfHeaders({
+              method: "DELETE",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${session.access_token}`,
+              },
+              body: JSON.stringify({ id }),
+            }),
+          ),
         ),
       );
 
@@ -726,9 +746,9 @@ export default function Dashboard() {
           </span>
           <Button
             size="sm"
-            variant="destructive"
+            variant="outline"
             onClick={handleUpgradeClick}
-            className="ml-4"
+            className="ml-4 bg-red-600 text-white hover:bg-red-700 hover:text-white"
           >
             Upgrade
           </Button>
@@ -1017,20 +1037,23 @@ export default function Dashboard() {
                                   } = await supabase.auth.getSession();
                                   if (!session)
                                     throw new Error("No access token found");
-                                  const res = await fetch("/api/schedules", {
-                                    method: "PATCH",
-                                    headers: {
-                                      "Content-Type": "application/json",
-                                      Authorization: `Bearer ${session.access_token}`,
-                                    },
-                                    body: JSON.stringify({
-                                      id: s.id,
-                                      status:
-                                        s.status === "paused"
-                                          ? "active"
-                                          : "paused",
+                                  const res = await fetch(
+                                    "/api/schedules",
+                                    addCsrfHeaders({
+                                      method: "PATCH",
+                                      headers: {
+                                        "Content-Type": "application/json",
+                                        Authorization: `Bearer ${session.access_token}`,
+                                      },
+                                      body: JSON.stringify({
+                                        id: s.id,
+                                        status:
+                                          s.status === "paused"
+                                            ? "active"
+                                            : "paused",
+                                      }),
                                     }),
-                                  });
+                                  );
                                   if (res.ok) {
                                     setRowActionSuccess(s.id);
                                     setTimeout(
@@ -1134,14 +1157,17 @@ export default function Dashboard() {
                                   } = await supabase.auth.getSession();
                                   if (!session)
                                     throw new Error("No access token found");
-                                  const res = await fetch("/api/schedules", {
-                                    method: "DELETE",
-                                    headers: {
-                                      "Content-Type": "application/json",
-                                      Authorization: `Bearer ${session.access_token}`,
-                                    },
-                                    body: JSON.stringify({ id: s.id }),
-                                  });
+                                  const res = await fetch(
+                                    "/api/schedules",
+                                    addCsrfHeaders({
+                                      method: "DELETE",
+                                      headers: {
+                                        "Content-Type": "application/json",
+                                        Authorization: `Bearer ${session.access_token}`,
+                                      },
+                                      body: JSON.stringify({ id: s.id }),
+                                    }),
+                                  );
                                   if (res.ok) {
                                     setRowActionSuccess(s.id);
                                     setTimeout(
@@ -1723,12 +1749,15 @@ export default function Dashboard() {
                     data: { session },
                   } = await supabase.auth.getSession();
                   if (!session) return;
-                  await fetch("/api/notion/store-token", {
-                    method: "DELETE",
-                    headers: {
-                      Authorization: `Bearer ${session.access_token}`,
-                    },
-                  });
+                  await fetch(
+                    "/api/notion/store-token",
+                    addCsrfHeaders({
+                      method: "DELETE",
+                      headers: {
+                        Authorization: `Bearer ${session.access_token}`,
+                      },
+                    }),
+                  );
                   setNotionConnected(false); // Instantly update UI
                   setDatabases([]); // Clear Notion-dependent state
 
@@ -1754,10 +1783,13 @@ export default function Dashboard() {
             <div className="flex flex-col items-center w-full">
               <div className="flex items-center justify-center w-16 h-16 rounded-full bg-blue-50 mb-4">
                 {/* Digestly logo for brand accent */}
-                <img
+                <Image
                   src="/digestly_logo.png"
                   alt="Digestly Logo"
+                  width={40}
+                  height={40}
                   className="w-10 h-10"
+                  priority
                 />
               </div>
               <h2 className="text-2xl font-bold text-blue-700 mb-2">

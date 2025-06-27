@@ -8,7 +8,11 @@ export function SignOutButton() {
   async function handleSignOut() {
     // Notion signout (remove token)
     try {
-      await fetch("/api/notion/store-token", { method: "DELETE" });
+      const { addCsrfHeaders } = await import("@/lib/csrf-client");
+      await fetch(
+        "/api/notion/store-token",
+        addCsrfHeaders({ method: "DELETE" }),
+      );
     } catch {}
     // Supabase signout
     if (typeof window !== "undefined") {

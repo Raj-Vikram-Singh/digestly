@@ -1,10 +1,65 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { validateCsrfHeader } from "@/lib/csrf-protection";
+import { isValidEmail, isValidTime, isValidDate } from "@/lib/validation";
 
 // POST: Create a new schedule
 export async function POST(req: NextRequest) {
+  // Validate CSRF token
+  if (!validateCsrfHeader(req)) {
+    return NextResponse.json({ error: "Invalid request" }, { status: 403 });
+  }
+
   const { dbId, email, frequency, timeOfDay, timezone, startDate, endDate } =
     await req.json();
+
+  // Input validation
+  if (!dbId || typeof dbId !== "string") {
+    return NextResponse.json({ error: "Invalid database ID" }, { status: 400 });
+  }
+
+  if (!email || !isValidEmail(email)) {
+    return NextResponse.json(
+      { error: "Invalid email address" },
+      { status: 400 },
+    );
+  }
+
+  if (
+    !frequency ||
+    !["daily", "weekly", "monthly", "custom"].includes(frequency)
+  ) {
+    return NextResponse.json({ error: "Invalid frequency" }, { status: 400 });
+  }
+
+  if (!timeOfDay || !isValidTime(timeOfDay)) {
+    return NextResponse.json(
+      { error: "Invalid time format. Use HH:MM format." },
+      { status: 400 },
+    );
+  }
+
+  if (!timezone) {
+    return NextResponse.json(
+      { error: "Timezone is required" },
+      { status: 400 },
+    );
+  }
+
+  if (startDate && !isValidDate(startDate)) {
+    return NextResponse.json(
+      { error: "Invalid start date format. Use YYYY-MM-DD." },
+      { status: 400 },
+    );
+  }
+
+  if (endDate && !isValidDate(endDate)) {
+    return NextResponse.json(
+      { error: "Invalid end date format. Use YYYY-MM-DD." },
+      { status: 400 },
+    );
+  }
+
   const authHeader = req.headers.get("authorization");
   const token = authHeader?.split(" ")[1];
   if (!token)
@@ -104,8 +159,65 @@ export async function GET(req: NextRequest) {
 
 // PATCH: Update schedule (status or full edit)
 export async function PATCH(req: NextRequest) {
+  // Validate CSRF token
+  if (!validateCsrfHeader(req)) {
+    return NextResponse.json({ error: "Invalid request" }, { status: 403 });
+  }
+
   const body = await req.json();
   const { id, ...updateFields } = body;
+
+  // Input validation
+  if (!id || typeof id !== "string") {
+    return NextResponse.json({ error: "Invalid schedule ID" }, { status: 400 });
+  }
+
+  // Validate the update fields
+  if (updateFields.email && !isValidEmail(updateFields.email)) {
+    return NextResponse.json(
+      { error: "Invalid email address" },
+      { status: 400 },
+    );
+  }
+
+  if (
+    updateFields.frequency &&
+    !["daily", "weekly", "monthly", "custom"].includes(updateFields.frequency)
+  ) {
+    return NextResponse.json({ error: "Invalid frequency" }, { status: 400 });
+  }
+
+  if (updateFields.time_of_day && !isValidTime(updateFields.time_of_day)) {
+    return NextResponse.json(
+      { error: "Invalid time format. Use HH:MM format." },
+      { status: 400 },
+    );
+  }
+
+  if (updateFields.start_date && !isValidDate(updateFields.start_date)) {
+    return NextResponse.json(
+      { error: "Invalid start date format. Use YYYY-MM-DD." },
+      { status: 400 },
+    );
+  }
+
+  if (updateFields.end_date && !isValidDate(updateFields.end_date)) {
+    return NextResponse.json(
+      { error: "Invalid end date format. Use YYYY-MM-DD." },
+      { status: 400 },
+    );
+  }
+
+  if (
+    updateFields.status &&
+    !["active", "paused"].includes(updateFields.status)
+  ) {
+    return NextResponse.json(
+      { error: "Invalid status. Use 'active' or 'paused'." },
+      { status: 400 },
+    );
+  }
+
   const authHeader = req.headers.get("authorization");
   const token = authHeader?.split(" ")[1];
   if (!token)
@@ -178,7 +290,18 @@ export async function PATCH(req: NextRequest) {
 
 // DELETE: Delete a schedule
 export async function DELETE(req: NextRequest) {
+  // Validate CSRF token
+  if (!validateCsrfHeader(req)) {
+    return NextResponse.json({ error: "Invalid request" }, { status: 403 });
+  }
+
   const { id } = await req.json();
+
+  // Input validation
+  if (!id || typeof id !== "string") {
+    return NextResponse.json({ error: "Invalid schedule ID" }, { status: 400 });
+  }
+
   const authHeader = req.headers.get("authorization");
   const token = authHeader?.split(" ")[1];
   if (!token)

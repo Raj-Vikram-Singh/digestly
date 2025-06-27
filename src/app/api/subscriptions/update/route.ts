@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { validateCsrfHeader } from "@/lib/csrf-protection";
+import { isValidTier, sanitizeString } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
 // This is a simplified version that would be replaced with actual payment processing
 export async function POST(req: NextRequest) {
   try {
+    // Validate CSRF token
+    if (!validateCsrfHeader(req)) {
+      return NextResponse.json({ error: "Invalid request" }, { status: 403 });
+    }
+
     const authHeader = req.headers.get("authorization");
     const token = authHeader?.split(" ")[1];
 
@@ -25,12 +32,24 @@ export async function POST(req: NextRequest) {
       paymentData,
     } = await req.json();
 
-    if (!tier || !["free", "pro", "enterprise"].includes(tier)) {
+    // Input validation
+    if (!tier || !isValidTier(tier)) {
       return NextResponse.json(
         { error: "Invalid subscription tier" },
         { status: 400 },
       );
     }
+
+    // Sanitize payment provider-related inputs
+    const sanitizedProvider = paymentProvider
+      ? sanitizeString(paymentProvider)
+      : null;
+    const sanitizedCustomerId = paymentCustomerId
+      ? sanitizeString(paymentCustomerId)
+      : null;
+    const sanitizedSubscriptionId = paymentSubscriptionId
+      ? sanitizeString(paymentSubscriptionId)
+      : null;
 
     // Create Supabase admin client
     const adminClient = createClient(
@@ -74,11 +93,12 @@ export async function POST(req: NextRequest) {
         updated_at: now.toISOString(),
       };
 
-      // Add payment related fields if provided
-      if (paymentProvider) updateData.payment_provider = paymentProvider;
-      if (paymentCustomerId) updateData.payment_customer_id = paymentCustomerId;
-      if (paymentSubscriptionId)
-        updateData.payment_subscription_id = paymentSubscriptionId;
+      // Add payment related fields if provided - use sanitized values
+      if (sanitizedProvider) updateData.payment_provider = sanitizedProvider;
+      if (sanitizedCustomerId)
+        updateData.payment_customer_id = sanitizedCustomerId;
+      if (sanitizedSubscriptionId)
+        updateData.payment_subscription_id = sanitizedSubscriptionId;
       if (paymentData) updateData.payment_data = paymentData;
 
       const { error: updateError } = await adminClient
@@ -102,11 +122,12 @@ export async function POST(req: NextRequest) {
         current_period_end: periodEnd.toISOString(),
       };
 
-      // Add payment related fields if provided
-      if (paymentProvider) insertData.payment_provider = paymentProvider;
-      if (paymentCustomerId) insertData.payment_customer_id = paymentCustomerId;
-      if (paymentSubscriptionId)
-        insertData.payment_subscription_id = paymentSubscriptionId;
+      // Add payment related fields if provided - use sanitized values
+      if (sanitizedProvider) insertData.payment_provider = sanitizedProvider;
+      if (sanitizedCustomerId)
+        insertData.payment_customer_id = sanitizedCustomerId;
+      if (sanitizedSubscriptionId)
+        insertData.payment_subscription_id = sanitizedSubscriptionId;
       if (paymentData) insertData.payment_data = paymentData;
 
       const { error: insertError } = await adminClient

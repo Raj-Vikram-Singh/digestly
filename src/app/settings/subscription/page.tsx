@@ -120,14 +120,18 @@ export default function SubscriptionPage() {
         updateData.paymentSubscriptionId = subscription.paymentSubscriptionId;
       }
 
-      const res = await fetch("/api/subscriptions/update", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify(updateData),
-      });
+      const { addCsrfHeaders } = await import("@/lib/csrf-client");
+      const res = await fetch(
+        "/api/subscriptions/update",
+        addCsrfHeaders({
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify(updateData),
+        }),
+      );
 
       if (!res.ok) {
         const errorData = await res.json();

@@ -207,7 +207,16 @@ async function sendDigest({
   return true;
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  // Check for API key authorization
+  const authHeader = req.headers.get("authorization");
+  const cronApiKey = process.env.CRON_API_KEY;
+
+  // Require API key to be set in environment and match the request
+  if (!cronApiKey || authHeader !== `Bearer ${cronApiKey}`) {
+    return NextResponse.json({ error: "Unauthorized access" }, { status: 401 });
+  }
+
   // Connect to Supabase
   const adminClient = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

@@ -36,14 +36,18 @@ function NotionCallbackContent() {
         return;
       }
       // Call protected API to store Notion token
-      const res = await fetch("/api/notion/store-token", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ code }),
-      });
+      const { addCsrfHeaders } = await import("@/lib/csrf-client");
+      const res = await fetch(
+        "/api/notion/store-token",
+        addCsrfHeaders({
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ code }),
+        }),
+      );
       if (res.ok) {
         setStatus("Notion connected! Redirecting to dashboard...");
         setTimeout(() => router.replace("/dashboard"), 1500);

@@ -130,27 +130,46 @@ export async function GET(req: NextRequest) {
   }
   const userId = user.user.id;
 
-  // Pagination params
+  // Pagination, filter, and sort params
   const { searchParams } = new URL(req.url);
   const page = parseInt(searchParams.get("page") || "0", 10);
   const pageSize = parseInt(searchParams.get("pageSize") || "10", 10);
+  const dbFilter = searchParams.get("dbFilter");
+  const sortKey = searchParams.get("sortKey") || "created_at";
+  const sortDir = searchParams.get("sortDir") || "desc";
   const from = page * pageSize;
   const to = from + pageSize - 1;
 
-  // Get total count
-  const { count, error: countError } = await adminClient
+  // Build the query
+  let query = adminClient
     .from("schedules")
     .select("*", { count: "exact", head: true })
     .eq("user_id", userId);
+
+  // Add database filter if specified
+  if (dbFilter) {
+    query = query.eq("db_id", dbFilter);
+  }
+
+  // Get total count with filters applied
+  const { count, error: countError } = await query;
   if (countError)
     return NextResponse.json({ error: countError.message }, { status: 500 });
 
-  // Get paginated data
-  const { data, error } = await adminClient
+  // Get paginated data with same filters
+  let dataQuery = adminClient
     .from("schedules")
     .select("*")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false })
+    .eq("user_id", userId);
+
+  // Apply the same database filter if specified
+  if (dbFilter) {
+    dataQuery = dataQuery.eq("db_id", dbFilter);
+  }
+
+  // Apply sorting and pagination
+  const { data, error } = await dataQuery
+    .order(sortKey, { ascending: sortDir === "asc" })
     .range(from, to);
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });

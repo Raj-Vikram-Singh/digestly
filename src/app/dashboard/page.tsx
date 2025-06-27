@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { getSupabaseBrowser } from "@/lib/auth";
 import { useRouter } from "next/navigation";
@@ -205,9 +205,15 @@ export default function Dashboard() {
         } = await supabase.auth.getSession();
         if (!session) return;
 
-        // Get the latest schedules data
+        // Get the latest schedules data - include database filter and sorting
+        const dbFilterParam =
+          dbFilter !== "all" ? `&dbFilter=${encodeURIComponent(dbFilter)}` : "";
+        const sortParam = sortBy.key
+          ? `&sortKey=${encodeURIComponent(sortBy.key)}&sortDir=${encodeURIComponent(sortBy.direction)}`
+          : "";
+
         const res = await fetch(
-          `/api/schedules?page=${pageNum}&pageSize=${pageSize}`,
+          `/api/schedules?page=${pageNum}&pageSize=${pageSize}${dbFilterParam}${sortParam}`,
           {
             headers: { Authorization: `Bearer ${session.access_token}` },
           },
@@ -245,13 +251,13 @@ export default function Dashboard() {
         setSchedulesLoading(false);
       }
     },
-    [pageSize], // pageSize affects how many items we fetch
+    [pageSize, dbFilter, sortBy.key, sortBy.direction], // pageSize, dbFilter, and sorting affect how we fetch
   );
 
-  // Infinite scroll effect
+  // Pagination effect - refetch when page or pageSize changes
   useEffect(() => {
     fetchSchedules(page);
-  }, [page, fetchSchedules]);
+  }, [page, pageSize, fetchSchedules]);
 
   // Reset on filter change
   useEffect(() => {
@@ -513,33 +519,14 @@ export default function Dashboard() {
     }
   }, [previewDb]);
 
-  // Derived filtered, sorted, paginated schedules
-  const filteredSchedules = useMemo(() => {
-    let data =
-      dbFilter === "all"
-        ? schedules
-        : schedules.filter((s) => s.db_id === dbFilter);
-    if (sortBy.key) {
-      data = [...data].sort((a, b) => {
-        // Type-safe key mapping
-        const key = sortBy.key as keyof Schedule;
-        const aVal = a[key];
-        const bVal = b[key];
-        if (aVal == null && bVal == null) return 0;
-        if (aVal == null) return 1;
-        if (bVal == null) return -1;
-        if (aVal < bVal) return sortBy.direction === "asc" ? -1 : 1;
-        if (aVal > bVal) return sortBy.direction === "asc" ? 1 : -1;
-        return 0;
-      });
-    }
-    return data;
-  }, [schedules, dbFilter, sortBy]);
-  const paginatedSchedules = useMemo(() => {
-    const start = page * pageSize;
-    return filteredSchedules.slice(start, start + pageSize);
-  }, [filteredSchedules, page, pageSize]);
-  const pageCount = Math.ceil(filteredSchedules.length / pageSize);
+  // With server-side pagination and filtering, we just use the schedules directly
+  // Server is already handling sorting, pagination, and filtering
+  const filteredSchedules = schedules;
+  // We're using server-side pagination, so filtered schedules are already for the current page
+  const paginatedSchedules = filteredSchedules;
+
+  // Calculate total pages based on total schedules (not just filtered ones)
+  const pageCount = Math.ceil(totalSchedules / pageSize);
 
   // Multi-select helpers
   const allVisibleIds = paginatedSchedules.map((s) => s.id);
@@ -685,6 +672,10 @@ export default function Dashboard() {
         ? { key, direction: prev.direction === "asc" ? "desc" : "asc" }
         : { key, direction: "asc" },
     );
+
+    // Reset to first page when sorting changes
+    setPage(0);
+    // Fetch with the new sort criteria will happen via useEffect due to page change
   }
 
   // Add a handler for subscription upgrade click (redirects to subscription settings)

@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Spinner } from "@/components/ui/spinner";
 import { ArrowPathIcon } from "@heroicons/react/24/outline";
+import { SubscriptionBanner } from "@/components/subscription/SubscriptionComponents";
 
 type NotionDatabase = {
   id: string;
@@ -94,6 +95,10 @@ export default function Dashboard() {
   const [notionConnected, setNotionConnected] = useState<boolean | null>(null);
   // Notion disconnect banner
   const [showReconnectBanner, setShowReconnectBanner] = useState(false);
+  // Subscription state
+  const [subscriptionMaxDigests, setSubscriptionMaxDigests] =
+    useState<number>(3);
+  const [isNearLimit, setIsNearLimit] = useState<boolean>(false);
 
   // Helper to check Notion connection
   const checkNotionConnection = useCallback(async () => {
@@ -204,6 +209,20 @@ export default function Dashboard() {
         if (res.ok) {
           setSchedules(data.schedules || []);
           setTotalSchedules(data.total || 0);
+
+          // Handle subscription data if available
+          if (data.subscription) {
+            setSubscriptionMaxDigests(data.subscription.maxDigests);
+
+            // Check if user is approaching their limit
+            const currentCount = data.subscription.currentCount || 0;
+            const maxDigests = data.subscription.maxDigests || 3;
+
+            // Set near limit if using 80% or more of available schedules
+            setIsNearLimit(
+              maxDigests !== -1 && currentCount / maxDigests >= 0.8,
+            );
+          }
 
           // Clear any existing errors
           setSchedulesError(null);
@@ -609,6 +628,11 @@ export default function Dashboard() {
     );
   }
 
+  // Add a handler for subscription upgrade click (redirects to subscription settings)
+  function handleUpgradeClick() {
+    router.push("/settings/subscription");
+  }
+
   if (!sessionChecked) {
     return (
       <main className="flex items-center justify-center min-h-screen">
@@ -621,7 +645,14 @@ export default function Dashboard() {
     <>
       {/* Notion-only sign out button at top when connected */}
       {notionConnected && (
-        <div className="flex justify-end mb-2">
+        <div className="flex justify-end mb-2 gap-2">
+          <Button
+            variant="outline"
+            onClick={() => router.push("/settings/subscription")}
+            className="flex items-center gap-1"
+          >
+            <span>Subscription</span>
+          </Button>
           <Button
             variant="outline"
             onClick={() => setShowNotionSignOutConfirm(true)}
@@ -630,6 +661,17 @@ export default function Dashboard() {
           </Button>
         </div>
       )}
+
+      {/* Subscription banner - show when near limit */}
+      {isNearLimit && subscriptionMaxDigests > 0 && (
+        <SubscriptionBanner
+          tierLimit={true}
+          currentCount={totalSchedules}
+          maxDigests={subscriptionMaxDigests}
+          onUpgrade={handleUpgradeClick}
+        />
+      )}
+
       {/* Reconnect banner */}
       {showReconnectBanner && !notionConnected && (
         <div className="mb-4 p-3 bg-yellow-100 border border-yellow-300 rounded text-yellow-900 flex items-center justify-between">

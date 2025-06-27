@@ -867,7 +867,7 @@ export default function Dashboard() {
               </label>
               <select
                 id="db-filter"
-                className="border rounded px-3 py-2 text-sm w-full md:w-auto"
+                className="border rounded px-3 py-2 text-sm w-full md:w-auto cursor-pointer"
                 value={dbFilter}
                 onChange={(e) => setDbFilter(e.target.value)}
               >
@@ -910,12 +910,21 @@ export default function Dashboard() {
               >
                 <thead className="sticky top-0 z-10 bg-white shadow-sm">
                   <tr className="h-14 align-middle">
-                    <th className="border px-2 py-1 text-left w-8">
+                    <th
+                      className="border px-2 py-1 text-left w-8 cursor-pointer"
+                      onClick={(e) => {
+                        // Only toggle if the click wasn't directly on the checkbox
+                        if (e.target === e.currentTarget) {
+                          toggleSelectAll();
+                        }
+                      }}
+                    >
                       <Checkbox
                         checked={isAllSelected}
                         indeterminate={isIndeterminate}
                         onChange={toggleSelectAll}
                         aria-label="Select all"
+                        onClick={(e) => e.stopPropagation()}
                       />
                     </th>
                     <th
@@ -983,11 +992,20 @@ export default function Dashboard() {
                       key={s.id}
                       className={`group hover:bg-blue-50 transition border-b ${selectedIds.includes(s.id) ? "bg-blue-100" : ""} ${isOverLimit && s.status === "paused" ? "bg-red-50 border-l-4 border-red-400" : ""}`}
                     >
-                      <td className="border px-2 py-1">
+                      <td
+                        className="border px-2 py-1 cursor-pointer"
+                        onClick={(e) => {
+                          // Only toggle if the click wasn't directly on the checkbox
+                          if (e.target === e.currentTarget) {
+                            toggleSelect(s.id);
+                          }
+                        }}
+                      >
                         <Checkbox
                           checked={selectedIds.includes(s.id)}
                           onChange={() => toggleSelect(s.id)}
                           aria-label="Select row"
+                          onClick={(e) => e.stopPropagation()}
                         />
                       </td>
                       <td className="border px-2 py-1 font-semibold">
@@ -1016,7 +1034,7 @@ export default function Dashboard() {
                           <DropdownMenu
                             trigger={(props) => (
                               <button
-                                className="p-1 rounded hover:bg-gray-200"
+                                className="p-1 rounded hover:bg-gray-200 cursor-pointer"
                                 {...props}
                                 disabled={!notionConnected}
                               >
@@ -1255,14 +1273,14 @@ export default function Dashboard() {
                 </div>
                 <div className="flex items-center gap-2">
                   <button
-                    className="px-2 py-1 rounded border text-sm"
+                    className="px-2 py-1 rounded border text-sm cursor-pointer"
                     onClick={() => setPage(0)}
                     disabled={page === 0}
                   >
                     &laquo;
                   </button>
                   <button
-                    className="px-2 py-1 rounded border text-sm"
+                    className="px-2 py-1 rounded border text-sm cursor-pointer"
                     onClick={() => setPage((p) => Math.max(0, p - 1))}
                     disabled={page === 0}
                   >
@@ -1270,7 +1288,7 @@ export default function Dashboard() {
                   </button>
                   <span className="px-2">{page + 1}</span>
                   <button
-                    className="px-2 py-1 rounded border text-sm"
+                    className="px-2 py-1 rounded border text-sm cursor-pointer"
                     onClick={() =>
                       setPage((p) => Math.min(pageCount - 1, p + 1))
                     }
@@ -1279,14 +1297,14 @@ export default function Dashboard() {
                     &rsaquo;
                   </button>
                   <button
-                    className="px-2 py-1 rounded border text-sm"
+                    className="px-2 py-1 rounded border text-sm cursor-pointer"
                     onClick={() => setPage(pageCount - 1)}
                     disabled={page >= pageCount - 1}
                   >
                     &raquo;
                   </button>
                   <select
-                    className="ml-2 border rounded px-2 py-1 text-sm"
+                    className="ml-2 border rounded px-2 py-1 text-sm cursor-pointer"
                     value={pageSize}
                     onChange={(e) => {
                       setPageSize(Number(e.target.value));
@@ -1514,7 +1532,7 @@ export default function Dashboard() {
               </label>
               <select
                 id="schedule-frequency"
-                className="border rounded px-3 py-2 text-sm"
+                className="border rounded px-3 py-2 text-sm cursor-pointer"
                 value={scheduleFrequency ?? ""}
                 onChange={(e) => setScheduleFrequency(e.target.value)}
               >
@@ -1639,7 +1657,7 @@ export default function Dashboard() {
                 />
                 <label className="text-sm font-medium mt-2">Frequency</label>
                 <select
-                  className="border rounded px-3 py-2 text-sm"
+                  className="border rounded px-3 py-2 text-sm cursor-pointer"
                   value={editSchedule.frequency ?? ""}
                   onChange={(e) =>
                     setEditSchedule({

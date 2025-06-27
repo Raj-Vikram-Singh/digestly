@@ -1,9 +1,10 @@
--- Add a RLS policy to prevent users from creating more schedules than their tier allows
+-- Add a RLS policy to prevent users from creating or resuming more schedules than their tier allows
 CREATE OR REPLACE FUNCTION public.enforce_max_digests()
 RETURNS TRIGGER AS $$
 DECLARE
   subscription_record RECORD;
   current_count INTEGER;
+  is_resuming BOOLEAN := FALSE;
 BEGIN
   -- Get user's subscription details
   SELECT s.tier, s.status, f.max_digests
@@ -21,26 +22,34 @@ BEGIN
     WHERE f.tier = 'free';
   END IF;
 
-  -- Count current schedules
+  -- Count current active schedules (status = 'active')
   SELECT COUNT(*)
   INTO current_count
   FROM schedules
-  WHERE user_id = NEW.user_id;
+  WHERE user_id = NEW.user_id AND status = 'active'
+    AND (TG_OP = 'INSERT' OR id != NEW.id); -- Exclude this row if UPDATE
+
+  -- Detect if this is a resume (status changed from paused to active)
+  IF TG_OP = 'UPDATE' AND OLD.status = 'paused' AND NEW.status = 'active' THEN
+    is_resuming := TRUE;
+  END IF;
 
   -- Enforce limit (ignore if max_digests is -1, which means unlimited)
-  IF subscription_record.max_digests != -1 AND current_count >= subscription_record.max_digests THEN
-    RAISE EXCEPTION 'Maximum number of schedules (%) exceeded for subscription tier %', 
-      subscription_record.max_digests, subscription_record.tier;
+  IF subscription_record.max_digests != -1 AND (TG_OP = 'INSERT' OR is_resuming) THEN
+    IF current_count >= subscription_record.max_digests THEN
+      RAISE EXCEPTION 'Maximum number of active schedules (%) exceeded for subscription tier %', 
+        subscription_record.max_digests, subscription_record.tier;
+    END IF;
   END IF;
 
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
--- Create a trigger to enforce the schedule limit
+-- Create a trigger to enforce the schedule limit on both INSERT and UPDATE
 DROP TRIGGER IF EXISTS enforce_max_digests_trigger ON schedules;
 CREATE TRIGGER enforce_max_digests_trigger
-BEFORE INSERT ON schedules
+BEFORE INSERT OR UPDATE ON schedules
 FOR EACH ROW EXECUTE FUNCTION public.enforce_max_digests();
 
 -- Add RLS policy to check frequency against allowed frequencies

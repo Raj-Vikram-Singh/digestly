@@ -127,6 +127,36 @@ export async function POST(req: NextRequest) {
         .eq("id", userId);
     }
 
+    // If downgrading, auto-pause excess schedules
+    if (tier === "free" || tier === "pro") {
+      // Get max digests for the new tier
+      const { data: featureRow } = await adminClient
+        .from("subscription_features")
+        .select("max_digests")
+        .eq("tier", tier)
+        .single();
+      const maxDigests = featureRow?.max_digests ?? 3;
+      if (maxDigests !== -1) {
+        // Get all active schedules for the user, ordered by created_at ASC
+        const { data: activeSchedules } = await adminClient
+          .from("schedules")
+          .select("id, created_at")
+          .eq("user_id", userId)
+          .eq("status", "active")
+          .order("created_at", { ascending: true });
+        if (activeSchedules && activeSchedules.length > maxDigests) {
+          // Find the excess schedules (those after the first maxDigests)
+          const toPause = activeSchedules.slice(maxDigests).map((s) => s.id);
+          if (toPause.length > 0) {
+            await adminClient
+              .from("schedules")
+              .update({ status: "paused" })
+              .in("id", toPause);
+          }
+        }
+      }
+    }
+
     return NextResponse.json({
       success: true,
       message: `Successfully updated subscription to ${tier} tier`,

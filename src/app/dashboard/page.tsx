@@ -99,6 +99,12 @@ export default function Dashboard() {
   const [subscriptionMaxDigests, setSubscriptionMaxDigests] =
     useState<number>(3);
   const [isNearLimit, setIsNearLimit] = useState<boolean>(false);
+  const [isOverLimit, setIsOverLimit] = useState<boolean>(false);
+  // UI state for subscription limit errors
+  const [showLimitModal, setShowLimitModal] = useState(false);
+  const [limitModalMessage, setLimitModalMessage] = useState<string | null>(
+    null,
+  );
 
   // Helper to check Notion connection
   const checkNotionConnection = useCallback(async () => {
@@ -222,6 +228,8 @@ export default function Dashboard() {
             setIsNearLimit(
               maxDigests !== -1 && currentCount / maxDigests >= 0.8,
             );
+            // Set over limit if above max
+            setIsOverLimit(maxDigests !== -1 && currentCount > maxDigests);
           }
 
           // Clear any existing errors
@@ -324,6 +332,7 @@ export default function Dashboard() {
     }
   }
 
+  // Create schedule handler
   async function handleCreateSchedule() {
     if (!scheduleDb) return;
     if (!scheduleEmail || !isValidEmail(scheduleEmail)) {
@@ -362,7 +371,19 @@ export default function Dashboard() {
         setScheduleEmail("");
       } else {
         const err = await res.json();
-        setScheduleError(err.error || "Failed to create schedule");
+        // If error is about schedule limit, show modal
+        if (
+          err.error &&
+          (err.error.includes("Maximum number of schedules") ||
+            err.error.includes("schedule limit"))
+        ) {
+          setLimitModalMessage(
+            "You have reached the maximum number of digests allowed for your subscription tier. Upgrade to unlock more!",
+          );
+          setShowLimitModal(true);
+        } else {
+          setScheduleError(err.error || "Failed to create schedule");
+        }
       }
     } catch (err) {
       setScheduleError((err as Error).message);
@@ -566,7 +587,7 @@ export default function Dashboard() {
       } = await supabase.auth.getSession();
       if (!session) return;
 
-      await Promise.all(
+      const results = await Promise.all(
         selectedIds.map((id) =>
           fetch("/api/schedules", {
             method: "PATCH",
@@ -578,7 +599,25 @@ export default function Dashboard() {
           }),
         ),
       );
-
+      let limitError = false;
+      for (const res of results) {
+        if (!res.ok) {
+          const err = await res.json();
+          if (
+            err.error &&
+            (err.error.includes("Maximum number of active schedules") ||
+              err.error.includes("schedule limit"))
+          ) {
+            limitError = true;
+          }
+        }
+      }
+      if (limitError) {
+        setLimitModalMessage(
+          "You are at your schedule limit. Upgrade your plan to resume more digests!",
+        );
+        setShowLimitModal(true);
+      }
       // Clear selection and refresh schedules table
       clearSelection();
       fetchSchedules(page); // Refresh the table with current data
@@ -641,8 +680,9 @@ export default function Dashboard() {
     );
   }
 
+  // The main render must return a single parent element (e.g. <div> or <Fragment>), not a fragment shorthand
   return (
-    <>
+    <div>
       {/* Notion-only sign out button at top when connected */}
       {notionConnected && (
         <div className="flex justify-end mb-2 gap-2">
@@ -670,6 +710,29 @@ export default function Dashboard() {
           maxDigests={subscriptionMaxDigests}
           onUpgrade={handleUpgradeClick}
         />
+      )}
+
+      {/* Over-limit warning banner */}
+      {isOverLimit && subscriptionMaxDigests > 0 && (
+        <div className="mb-4 p-3 bg-red-100 border border-red-300 rounded text-red-900 flex items-center justify-between animate-fade-in">
+          <span>
+            <b>Over your schedule limit!</b> You have more active digests than
+            allowed by your current subscription tier. Excess digests have been
+            paused. <br />
+            <span className="text-sm">
+              Upgrade your plan or delete/disable extra schedules to resume
+              sending.
+            </span>
+          </span>
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={handleUpgradeClick}
+            className="ml-4"
+          >
+            Upgrade
+          </Button>
+        </div>
       )}
 
       {/* Reconnect banner */}
@@ -730,6 +793,17 @@ export default function Dashboard() {
                         size="sm"
                         variant="outline"
                         onClick={() => {
+                          // If user is at or over their schedule limit, show upgrade modal and block opening the modal
+                          if (
+                            subscriptionMaxDigests > 0 &&
+                            totalSchedules >= subscriptionMaxDigests
+                          ) {
+                            setLimitModalMessage(
+                              "You have reached the maximum number of digests allowed for your subscription tier. Upgrade to unlock more!",
+                            );
+                            setShowLimitModal(true);
+                            return;
+                          }
                           setScheduleDb(db);
                           setScheduleEmail("");
                           setScheduleError(null);
@@ -887,7 +961,7 @@ export default function Dashboard() {
                   {paginatedSchedules.map((s) => (
                     <tr
                       key={s.id}
-                      className={`group hover:bg-blue-50 transition border-b ${selectedIds.includes(s.id) ? "bg-blue-100" : ""}`}
+                      className={`group hover:bg-blue-50 transition border-b ${selectedIds.includes(s.id) ? "bg-blue-100" : ""} ${isOverLimit && s.status === "paused" ? "bg-red-50 border-l-4 border-red-400" : ""}`}
                     >
                       <td className="border px-2 py-1">
                         <Checkbox
@@ -906,7 +980,14 @@ export default function Dashboard() {
                       </td>
                       <td className="border px-2 py-1">{s.start_date}</td>
                       <td className="border px-2 py-1">{s.end_date || "-"}</td>
-                      <td className="border px-2 py-1">{s.status}</td>
+                      <td className="border px-2 py-1">
+                        {s.status}
+                        {isOverLimit && s.status === "paused" && (
+                          <span className="ml-2 text-xs text-red-600 font-semibold">
+                            (Paused by system)
+                          </span>
+                        )}
+                      </td>
                       <td
                         className="border px-2 py-1"
                         style={{ overflow: "visible", position: "relative" }}
@@ -958,13 +1039,27 @@ export default function Dashboard() {
                                     );
                                   } else {
                                     const err = await res.json();
-                                    setRowActionError(
-                                      err.error || "Failed to update",
-                                    );
-                                    setTimeout(
-                                      () => setRowActionError(null),
-                                      2000,
-                                    );
+                                    // Show upgrade modal if over schedule limit
+                                    if (
+                                      err.error &&
+                                      (err.error.includes(
+                                        "Maximum number of active schedules",
+                                      ) ||
+                                        err.error.includes("schedule limit"))
+                                    ) {
+                                      setLimitModalMessage(
+                                        "You are at your schedule limit. Upgrade your plan to resume more digests!",
+                                      );
+                                      setShowLimitModal(true);
+                                    } else {
+                                      setRowActionError(
+                                        err.error || "Failed to update",
+                                      );
+                                      setTimeout(
+                                        () => setRowActionError(null),
+                                        2000,
+                                      );
+                                    }
                                   }
                                 } catch (err) {
                                   setRowActionError((err as Error).message);
@@ -1651,6 +1746,45 @@ export default function Dashboard() {
           </div>
         </div>
       )}
-    </>
+
+      {/* Upgrade limit modal - new addition */}
+      {showLimitModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full flex flex-col items-center border border-blue-200 animate-fade-in">
+            <div className="flex flex-col items-center w-full">
+              <div className="flex items-center justify-center w-16 h-16 rounded-full bg-blue-50 mb-4">
+                {/* Digestly logo for brand accent */}
+                <img
+                  src="/digestly_logo.png"
+                  alt="Digestly Logo"
+                  className="w-10 h-10"
+                />
+              </div>
+              <h2 className="text-2xl font-bold text-blue-700 mb-2">
+                Upgrade Required
+              </h2>
+              <p className="text-center text-gray-700 mb-6 text-base">
+                {limitModalMessage ||
+                  "You are at your schedule limit. Upgrade your plan to resume more digests!"}
+              </p>
+              <Button
+                className="w-full mb-2 py-3 text-base font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow"
+                onClick={handleUpgradeClick}
+                size="lg"
+              >
+                Upgrade Now
+              </Button>
+              <button
+                className="w-full py-3 text-base font-semibold rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 mt-1 shadow-sm"
+                onClick={() => setShowLimitModal(false)}
+                autoFocus
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

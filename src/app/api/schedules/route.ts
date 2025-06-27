@@ -125,6 +125,42 @@ export async function PATCH(req: NextRequest) {
   }
   const userId = user.user.id;
 
+  // Defensive: If resuming (status: 'active'), check max digests
+  if (updateFields.status === "active") {
+    // Get user's subscription tier
+    const { data: sub } = await adminClient
+      .from("subscriptions")
+      .select("tier")
+      .eq("user_id", userId)
+      .eq("status", "active")
+      .maybeSingle();
+    const tier = sub?.tier || "free";
+    // Get max digests for tier
+    const { data: features } = await adminClient
+      .from("subscription_features")
+      .select("max_digests")
+      .eq("tier", tier)
+      .single();
+    const maxDigests = features?.max_digests ?? 3;
+    if (maxDigests !== -1) {
+      // Count current active schedules (excluding this one if it's already active)
+      const { count } = await adminClient
+        .from("schedules")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("status", "active")
+        .neq("id", id);
+      if ((count ?? 0) >= maxDigests) {
+        return NextResponse.json(
+          {
+            error: `You are at your schedule limit (${maxDigests}). Upgrade your plan or pause/delete another schedule to resume this one.`,
+          },
+          { status: 403 },
+        );
+      }
+    }
+  }
+
   const { data, error } = await adminClient
     .from("schedules")
     .update(updateFields)
